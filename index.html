@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>HASH FARM — 비트코인 채굴 시뮬레이터</title>
+<style>
+  :root{
+    --bg-deep:#1a212b;
+    --bg-grad:#212a37;
+    --panel:#242e3c;
+    --panel-alt:#2c3747;
+    --line:#3a4658;
+    --amber:#ffab5e;
+    --amber-dim:#8a6a44;
+    --green:#4ee3a0;
+    --red:#ff6b6b;
+    --blue:#5fb3ff;
+    --text:#eef2f6;
+    --text-dim:#8e98a8;
+    --mono: 'SFMono-Regular', 'Consolas', 'Menlo', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; color:var(--text);
+    background:linear-gradient(165deg, var(--bg-grad), var(--bg-deep));
+    font-family:var(--mono); font-size:14px; line-height:1.5;
+    padding:16px; min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+  header{
+    display:flex; justify-content:space-between; align-items:baseline;
+    border-bottom:2px solid var(--line); padding-bottom:10px; margin-bottom:12px;
+    flex-wrap:wrap; gap:8px;
+  }
+  h1{font-size:19px; letter-spacing:2px; margin:0; color:var(--amber); font-weight:700;}
+  h1 span{color:var(--text-dim); font-weight:400; font-size:11px; margin-left:8px;}
+
+  .stat-bar{display:grid; grid-template-columns:repeat(auto-fit,minmax(115px,1fr)); gap:10px; margin-bottom:14px;}
+  .stat{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px; cursor:help;}
+  .stat .label{color:var(--text-dim); font-size:10.5px; text-transform:uppercase; letter-spacing:1px;}
+  .stat .value{font-size:16px; font-weight:700; margin-top:2px;}
+  .value.usd{color:var(--green);}
+  .value.btc{color:var(--amber);}
+
+  /* ---- 프로필(자산 등급) ---- */
+  .profile-card{
+    display:flex; align-items:center; gap:10px; background:var(--panel-alt);
+    border:1px solid var(--line); border-radius:20px; padding:6px 14px;
+  }
+  .profile-card .p-icon{font-size:20px;}
+  .profile-card .p-label{font-size:9.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;}
+  .profile-card .p-title{font-size:13px; font-weight:700; color:var(--blue);}
+  #langToggle{border-radius:20px; padding:6px 14px; font-weight:700;}
+
+  /* ---- 초보자 가이드 ---- */
+  .guide-panel{background:rgba(95,179,255,.08); border:1px solid rgba(95,179,255,.25);}
+  .guide-panel h2{color:var(--blue); border-bottom-color:rgba(95,179,255,.25);}
+  .guide-list{list-style:none; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px; font-size:12px;}
+  .guide-list li{display:flex; gap:8px; align-items:flex-start; line-height:1.4;}
+  .guide-list b{
+    background:var(--blue); color:var(--bg-deep); border-radius:50%; width:16px; height:16px;
+    display:inline-flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0; margin-top:2px;
+  }
+
+  .grid{display:grid; grid-template-columns: 1.4fr 1fr; gap:14px;}
+  @media (max-width:860px){ .grid{grid-template-columns:1fr;} .stat-bar{grid-template-columns:repeat(2,1fr);} }
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px;
+    box-shadow:0 2px 10px rgba(0,0,0,.15);}
+  .panel h2{font-size:12.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim);
+    margin:0 0 10px 0; border-bottom:1px solid var(--line); padding-bottom:8px;}
+
+  /* ---- 등급 패널 ---- */
+  .tier-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .tier-name{font-size:16px; font-weight:700; color:var(--blue);}
+  .tier-mult{font-size:11.5px; color:var(--text-dim);}
+  .progress-label{font-size:11px; color:var(--text-dim); margin-bottom:4px;}
+  .progress-bar{height:10px; background:var(--panel-alt); border-radius:6px; overflow:hidden; border:1px solid var(--line);}
+  .progress-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--blue),var(--green)); transition:width .3s;}
+  #promoteBtn{width:100%; margin-top:10px; padding:9px; font-weight:700;}
+
+  /* ---- 가격 패널 ---- */
+  .price-panel{position:relative;}
+  .breaking-news{
+    position:absolute; top:52px; left:14px; right:14px;
+    background:linear-gradient(90deg, rgba(255,107,107,.20), rgba(255,107,107,.06));
+    border:1px solid var(--red); border-radius:8px; padding:8px 12px;
+    font-size:11.5px; display:flex; gap:8px; align-items:center;
+    opacity:0; transform:translateY(-6px); transition:opacity .35s, transform .35s;
+    z-index:5;
+  }
+  .breaking-news.show{opacity:1; transform:translateY(0);}
+  .breaking-news.hidden{display:none;}
+  .bn-tag{background:var(--red); color:#1a212b; font-weight:700; padding:2px 6px; border-radius:4px; font-size:10px; flex-shrink:0;}
+
+  .price-top{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:6px; flex-wrap:wrap; gap:6px;}
+  .price-big{font-size:30px; font-weight:700;}
+  .price-change{font-size:14px; font-weight:700; padding:3px 8px; border-radius:6px;}
+  .price-change.up{color:var(--green); background:rgba(78,227,160,.14);}
+  .price-change.down{color:var(--red); background:rgba(255,107,107,.14);}
+  canvas#priceChart{width:100%; height:130px; display:block; background:var(--panel-alt); border-radius:8px; border:1px solid var(--line);}
+  .trade-row{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;}
+  .trade-row button{flex:1; min-width:70px;}
+  .trade-label{font-size:11px; color:var(--text-dim); width:100%; margin-top:8px;}
+
+  /* ---- 마이닝 플로어 ---- */
+  .floor{display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin-bottom:14px;}
+  .rig-card{background:var(--panel-alt); border:1px solid var(--line); border-radius:8px; padding:10px; text-align:center; position:relative;}
+  .rig-card .icon{font-size:26px;}
+  .rig-card .count-badge{
+    position:absolute; top:6px; right:6px; background:var(--bg-deep); color:var(--amber);
+    font-size:10px; padding:1px 6px; border-radius:8px; border:1px solid var(--line);
+  }
+  .fan{margin:4px auto 0; width:14px;height:14px; border:2px solid var(--amber-dim); border-radius:50%;
+    border-top-color:var(--amber); animation: spin 1.1s linear infinite;}
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+
+  .heat-wrap{margin-top:4px;}
+  .heat-label{display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); margin-bottom:4px;}
+  .heat-bar{height:14px; background:var(--panel-alt); border-radius:7px; overflow:hidden; border:1px solid var(--line);}
+  .heat-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--green),var(--amber),var(--red)); transition:width .3s;}
+
+  /* ---- 상점 ---- */
+  .shop-item{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);}
+  .shop-item:last-child{border-bottom:none;}
+  .shop-item .icon{font-size:20px; width:26px; text-align:center;}
+  .shop-item .info{flex:1;}
+  .shop-item .name{font-size:12.5px; margin-bottom:4px;}
+  .meter-row{display:flex; align-items:center; gap:4px; margin-bottom:2px;}
+  .meter-row .tag{font-size:9.5px; color:var(--text-dim); width:26px;}
+  .meter{flex:1; height:5px; background:var(--bg-deep); border-radius:3px; overflow:hidden;}
+  .meter-fill{height:100%; border-radius:3px;}
+  .meter-fill.hash{background:var(--green);}
+  .meter-fill.power{background:var(--red);}
+  .locked-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); opacity:.5;}
+  .locked-row:last-child{border-bottom:none;}
+
+  button{font-family:var(--mono); background:var(--panel-alt); color:var(--text);
+    border:1px solid var(--line); border-radius:6px; padding:7px 10px; cursor:pointer; font-size:12px;}
+  button:hover:not(:disabled){border-color:var(--blue); color:var(--blue);}
+  button:disabled{opacity:.4; cursor:not-allowed;}
+  .btn-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .toggle-on{border-color:var(--green)!important; color:var(--green)!important;}
+  .pool-toggle{display:flex; gap:8px; margin-bottom:8px;}
+  .pool-toggle button{flex:1;}
+
+  .log{height:150px; overflow-y:auto; font-size:11px; display:flex; flex-direction:column-reverse;}
+  .log div{padding:2px 0; border-bottom:1px dotted var(--line); color:var(--text-dim);}
+  .log div.warn{color:var(--red);}
+  .log div.good{color:var(--green);}
+  .log div.news{color:var(--amber);}
+
+  /* ---- 리더보드 ---- */
+  #lbPanel{display:none;}
+  .lb-row{display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px dotted var(--line);}
+  .lb-input-row{display:flex; gap:6px; margin-bottom:10px;}
+  .lb-input-row input{flex:1; font-family:var(--mono); background:var(--panel-alt); border:1px solid var(--line);
+    border-radius:6px; color:var(--text); padding:7px 8px; font-size:12px;}
+
+  small.note{color:var(--text-dim); display:block; margin-top:8px; font-size:10.5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>HASH FARM<span data-i18n="subtitle">비트코인 채굴 시뮬레이터 · 가상 경제 (실제 시세 아님)</span></h1>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div class="profile-card">
+        <div class="p-icon" id="profileIcon">👶</div>
+        <div>
+          <div class="p-label" data-i18n="profileLabel">내 채굴 등급</div>
+          <div class="p-title" id="profileTitle">초보 광부</div>
+        </div>
+      </div>
+      <button id="langToggle">EN</button>
+    </div>
+  </header>
+
+  <div class="panel guide-panel">
+    <h2 data-i18n="guideTitle">ℹ️ 게임 진행 방법</h2>
+    <ul class="guide-list">
+      <li><b>1</b><span data-i18n="guide1">오른쪽 장비 구매 패널에서 채굴기를 사서 해시레이트를 확보하세요.</span></li>
+      <li><b>2</b><span data-i18n="guide2">발열이 쌓이면 팬 부스트로 식히고, 오버클럭은 신중히 켜세요.</span></li>
+      <li><b>3</b><span data-i18n="guide3">채굴된 BTC는 그래프를 보고 매도하거나, 쌀 때 매수해 자금을 불리세요.</span></li>
+      <li><b>4</b><span data-i18n="guide4">전기료를 못 내면(잔고 마이너스) 채굴기가 자동으로 멈춥니다.</span></li>
+      <li><b>5</b><span data-i18n="guide5">순자산이 목표치를 넘으면 승급하세요. 자산은 초기화되지만 영구 배율과 신규 장비가 열립니다.</span></li>
+    </ul>
+  </div>
+
+  <div class="panel" style="text-align:center;">
+    <div style="display:flex; justify-content:center; gap:22px; align-items:center; flex-wrap:wrap; font-size:13px;">
+      <div><span data-i18n="viewLabel">👀 방문자 수</span> <b id="viewCount">-</b></div>
+      <div><span data-i18n="likeLabel">❤️ 좋아요</span> <b id="likeCount">-</b> <button id="likeBtn" data-i18n="likeBtn">좋아요 누르기</button></div>
+    </div>
+    <small class="note" data-i18n="counterNote">GitHub Pages 등 외부에 배포했을 때 실제로 누적됩니다. 무료 카운터 서비스 사용 · 완벽한 부정클릭 방지는 아님.</small>
+  </div>
+
+  <div class="panel">
+    <div class="tier-row">
+      <div class="tier-name" id="tierName">🏘️ 로컬</div>
+      <div class="tier-mult" id="tierMult">배율 x1.00</div>
+    </div>
+    <div class="progress-label" id="progressLabel">순자산 $0 / $80,000</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <button id="promoteBtn" disabled>🚀 승급하기 (자산 초기화 · 난이도 상승 · 영구 배율 획득)</button>
+    <small class="note" data-i18n="promoteNote">승급하면 USD/BTC/장비가 초기화되지만 해시레이트 배율이 영구적으로 올라가고, 더 강력한 채굴 장비가 새로 해금됩니다.</small>
+  </div>
+
+  <div class="stat-bar">
+    <div class="stat" data-i18n-title="tipUsd" title="현금처럼 쓰는 달러. 장비 구매·전기료 결제에 사용됩니다."><div class="label" data-i18n="labelUsd">💵 USD</div><div class="value usd" id="usdVal">$0</div></div>
+    <div class="stat" data-i18n-title="tipBtc" title="채굴로 모은 비트코인. 매도하면 USD로 바뀝니다."><div class="label" data-i18n="labelBtc">₿ BTC 보유</div><div class="value btc" id="btcVal">0.00000000</div></div>
+    <div class="stat" data-i18n-title="tipHash" title="내가 가진 채굴기들의 총 연산력. 높을수록 채굴이 빨라집니다."><div class="label" data-i18n="labelHash">⚡ 내 해시레이트</div><div class="value" id="hashVal">0 TH/s</div></div>
+    <div class="stat" data-i18n-title="tipShare" title="전체 채굴자 중 내가 차지하는 비율. 높을수록 채굴 확률·수익이 커집니다."><div class="label" data-i18n="labelShare">📊 네트워크 점유율</div><div class="value" id="shareVal">0%</div></div>
+    <div class="stat" data-i18n-title="tipReward" title="블록 하나를 채굴했을 때 받는 BTC 보상. 반감기마다 절반으로 줄어듭니다."><div class="label" data-i18n="labelReward">🎁 블록 보상</div><div class="value" id="rewardVal">3.125 BTC</div></div>
+    <div class="stat" data-i18n-title="tipHalving" title="다음 반감기까지 남은 블록 수. 0이 되면 블록 보상이 절반이 됩니다."><div class="label" data-i18n="labelHalving">⏳ 반감기까지</div><div class="value" id="halvingVal">0/40</div></div>
+  </div>
+
+  <div class="panel price-panel">
+    <div class="breaking-news hidden" id="breakingNews">
+      <span class="bn-tag" data-i18n="bnTag">속보</span><span id="bnText"></span>
+    </div>
+    <h2 data-i18n="priceTitle">BTC/USD 시세</h2>
+    <div class="price-top">
+      <div class="price-big" id="priceBig">$95,000</div>
+      <div class="price-change up" id="priceChange">▲ 0.00%</div>
+    </div>
+    <canvas id="priceChart" width="900" height="130"></canvas>
+
+    <div class="trade-label" data-i18n="sellLabel">₿ 보유 BTC 매도</div>
+    <div class="trade-row">
+      <button data-act="sell" data-frac="0.25" data-i18n="sell25">25% 매도</button>
+      <button data-act="sell" data-frac="0.5" data-i18n="sell50">50% 매도</button>
+      <button data-act="sell" data-frac="1" data-i18n="sellAll">전량 매도</button>
+    </div>
+    <div class="trade-label" data-i18n="buyLabel">💵 현재가로 BTC 매수 (USD 사용)</div>
+    <div class="trade-row">
+      <button data-act="buy" data-frac="0.25" data-i18n="buy25">USD 25% 매수</button>
+      <button data-act="buy" data-frac="0.5" data-i18n="buy50">USD 50% 매수</button>
+      <button data-act="buy" data-frac="1" data-i18n="buyAll">USD 전액 매수</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2 data-i18n="floorTitle">마이닝 플로어</h2>
+        <div class="floor" id="floor"></div>
+
+        <div class="heat-wrap">
+          <div class="heat-label"><span data-i18n="heatLabel">🌡️ 팜 발열</span><span id="heatText">0%</span></div>
+          <div class="heat-bar"><div class="heat-fill" id="heatFill"></div></div>
+        </div>
+
+        <div class="btn-row">
+          <button id="fanBtn">🌀 팬 부스트 (발열 -18)</button>
+          <button id="overclockBtn">⚡ 오버클럭 OFF</button>
+        </div>
+        <small class="note" data-i18n="overclockNote">오버클럭: 해시레이트 +50%, 발열/전력 대폭 증가. 발열 100% 도달 시 장비 손상.</small>
+      </div>
+
+      <div class="panel">
+        <h2 data-i18n="strategyTitle">채굴 전략</h2>
+        <div class="pool-toggle">
+          <button id="poolBtn" class="toggle-on" data-i18n="poolBtn">🏊 풀 채굴</button>
+          <button id="soloBtn" data-i18n="soloBtn">🎰 솔로 채굴</button>
+        </div>
+        <small class="note" data-i18n="strategyNote">풀: 점유율만큼 조금씩 꾸준히 지급. 솔로: 네트워크 블록 생성 시 점유율 확률로 전량 획득 (하이리스크).</small>
+      </div>
+
+      <div class="panel" id="lbPanel">
+        <h2 data-i18n="lbTitle">🌐 글로벌 리더보드 (현재 등급)</h2>
+        <div class="lb-input-row">
+          <input id="nickInput" placeholder="닉네임 입력" data-i18n-placeholder="nickPlaceholder" maxlength="16">
+          <button id="lbSubmit" data-i18n="lbSubmit">순위 등록</button>
+          <button id="lbRefresh" data-i18n="lbRefresh">새로고침</button>
+        </div>
+        <div id="lbList"><small class="note" data-i18n="lbEmpty">아직 등록된 순위가 없습니다.</small></div>
+        <small class="note" data-i18n="lbNote">⚠️ 실시간 대전이 아닌 비동기 순위 공유이며, Claude에서 이 화면을 열었을 때만 작동합니다. 파일을 다운로드해 로컬로 열면 작동하지 않습니다.</small>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2 data-i18n="shopTitle">장비 구매</h2>
+        <div id="shop"></div>
+      </div>
+
+      <div class="panel">
+        <h2 data-i18n="logTitle">운영 로그</h2>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- 장비 데이터 (unlock: 해금 등급 인덱스) ----------
+const tiersGear = [
+  {key:'usb', name:{ko:'USB 채굴기', en:'USB Miner'}, icon:'🔌', hash:0.001, power:0.01, base:20, unlock:0},
+  {key:'gpu', name:{ko:'GPU 리그', en:'GPU Rig'}, icon:'🖥️', hash:0.2, power:0.35, base:600, unlock:0},
+  {key:'s9',  name:{ko:'구형 ASIC (S9)', en:'Old ASIC (S9)'}, icon:'📦', hash:20, power:1.3, base:2800, unlock:0},
+  {key:'s19', name:{ko:'ASIC S19', en:'ASIC S19'}, icon:'🗄️', hash:160, power:3.25, base:10000, unlock:0},
+  {key:'s21', name:{ko:'ASIC S21 Pro', en:'ASIC S21 Pro'}, icon:'🏭', hash:350, power:3.6, base:20000, unlock:0},
+  {key:'immersion', name:{ko:'면역냉각 팜', en:'Immersion-Cooled Farm'}, icon:'🧊', hash:900, power:8, base:60000, unlock:1},
+  {key:'hydro', name:{ko:'수력 메가팜', en:'Hydro Mega Farm'}, icon:'💧', hash:2400, power:18, base:220000, unlock:2},
+  {key:'fusion', name:{ko:'핵융합 팜', en:'Fusion Farm'}, icon:'🔆', hash:5000, power:30, base:500000, unlock:3},
+  {key:'quantum', name:{ko:'퀀텀 해시 어레이', en:'Quantum Hash Array'}, icon:'✨', hash:8000, power:40, base:900000, unlock:4},
+];
+
+// ---------- 등급 (프레스티지) ----------
+const tierNames = [
+  {ko:'🏘️ 로컬 (우리 동네)', en:'🏘️ Local (Hometown)'},
+  {ko:'🏳️ 내셔널 (전국)', en:'🏳️ National'},
+  {ko:'🌏 아시아 (대륙)', en:'🌏 Asia (Continental)'},
+  {ko:'🌍 글로벌웨스트 (유럽·북미)', en:'🌍 Global West (Europe/N.America)'},
+  {ko:'🌌 유니버설 (궁극)', en:'🌌 Universal (Ultimate)'},
+];
+const tierThresholds = [80000, 600000, 5000000, 40000000]; // 마지막 등급은 없음
+
+// ---------- 게임 상태 ----------
+let state = {
+  usd: 1500,
+  btc: 0,
+  owned: {},
+  tierIndex: 0,
+  prestigeMultiplier: 1,
+  networkHash: 4000,
+  btcPrice: 95000,
+  emaPrice: 95000,
+  blockReward: 3.125,
+  elecPrice: 0.15,
+  heat: 10,
+  overclock: false,
+  poolMode: true,
+  fanCooldown: 0,
+  networkBlocksSinceHalving: 0,
+  tick: 0,
+  blockIntervalTicks: 18,
+  wasInactiveLogged: false,
+  lang: 'ko',
+};
+tiersGear.forEach(t => state.owned[t.key] = 0);
+
+let priceHistory = [state.btcPrice];
+
+const fmtUsd = n => (n<0?'-':'') + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
+const fmtBtc = n => n.toFixed(8);
+
+// ---------- 다국어 (i18n) ----------
+function tr(ko, en){ return state.lang === 'ko' ? ko : en; }
+
+const TEXT = {
+  subtitle: {ko:'비트코인 채굴 시뮬레이터 · 가상 경제 (실제 시세 아님)', en:'Bitcoin Mining Simulator · Virtual Economy (not real market data)'},
+  profileLabel: {ko:'내 채굴 등급', en:'My Miner Rank'},
+  guideTitle: {ko:'ℹ️ 게임 진행 방법', en:'ℹ️ How to Play'},
+  guide1: {ko:'오른쪽 장비 구매 패널에서 채굴기를 사서 해시레이트를 확보하세요.', en:'Buy rigs in the equipment panel on the right to build up hashrate.'},
+  guide2: {ko:'발열이 쌓이면 팬 부스트로 식히고, 오버클럭은 신중히 켜세요.', en:'Cool down with the fan boost when heat builds up, and use overclock carefully.'},
+  guide3: {ko:'채굴된 BTC는 그래프를 보고 매도하거나, 쌀 때 매수해 자금을 불리세요.', en:'Sell mined BTC by watching the chart, or buy the dip to grow your funds.'},
+  guide4: {ko:'전기료를 못 내면(잔고 마이너스) 채굴기가 자동으로 멈춥니다.', en:'If you can\'t pay electricity (negative balance), rigs shut down automatically.'},
+  guide5: {ko:'순자산이 목표치를 넘으면 승급하세요. 자산은 초기화되지만 영구 배율과 신규 장비가 열립니다.', en:'Once your net worth passes the target, promote. Assets reset but you gain a permanent multiplier and new gear.'},
+  viewLabel: {ko:'👀 방문자 수', en:'👀 Visitors'},
+  likeLabel: {ko:'❤️ 좋아요', en:'❤️ Likes'},
+  likeBtn: {ko:'좋아요 누르기', en:'Like'},
+  likeBtnDone: {ko:'❤️ 완료', en:'❤️ Liked'},
+  counterNote: {ko:'GitHub Pages 등 외부에 배포했을 때 실제로 누적됩니다. 무료 카운터 서비스 사용 · 완벽한 부정클릭 방지는 아님.', en:'Actually accumulates when deployed externally (e.g. GitHub Pages). Uses a free counter service · not fully spam-proof.'},
+  promoteNote: {ko:'승급하면 USD/BTC/장비가 초기화되지만 해시레이트 배율이 영구적으로 올라가고, 더 강력한 채굴 장비가 새로 해금됩니다.', en:'Promoting resets USD/BTC/gear, but permanently raises your hashrate multiplier and unlocks stronger gear.'},
+  labelUsd: {ko:'💵 USD', en:'💵 USD'},
+  labelBtc: {ko:'₿ BTC 보유', en:'₿ BTC Held'},
+  labelHash: {ko:'⚡ 내 해시레이트', en:'⚡ My Hashrate'},
+  labelShare: {ko:'📊 네트워크 점유율', en:'📊 Network Share'},
+  labelReward: {ko:'🎁 블록 보상', en:'🎁 Block Reward'},
+  labelHalving: {ko:'⏳ 반감기까지', en:'⏳ Until Halving'},
+  tipUsd: {ko:'현금처럼 쓰는 달러. 장비 구매·전기료 결제에 사용됩니다.', en:'Cash you spend on gear and electricity bills.'},
+  tipBtc: {ko:'채굴로 모은 비트코인. 매도하면 USD로 바뀝니다.', en:'Bitcoin mined so far. Sell it to convert to USD.'},
+  tipHash: {ko:'내가 가진 채굴기들의 총 연산력. 높을수록 채굴이 빨라집니다.', en:'Total compute power of your rigs. Higher means faster mining.'},
+  tipShare: {ko:'전체 채굴자 중 내가 차지하는 비율. 높을수록 채굴 확률·수익이 커집니다.', en:'Your share among all miners. Higher means better odds and rewards.'},
+  tipReward: {ko:'블록 하나를 채굴했을 때 받는 BTC 보상. 반감기마다 절반으로 줄어듭니다.', en:'BTC reward for mining one block. Halves at every halving event.'},
+  tipHalving: {ko:'다음 반감기까지 남은 블록 수. 0이 되면 블록 보상이 절반이 됩니다.', en:'Blocks left until the next halving. Reward halves when it hits 0.'},
+  bnTag: {ko:'속보', en:'BREAKING'},
+  priceTitle: {ko:'BTC/USD 시세', en:'BTC/USD Price'},
+  sellLabel: {ko:'₿ 보유 BTC 매도', en:'₿ Sell BTC'},
+  sell25: {ko:'25% 매도', en:'Sell 25%'},
+  sell50: {ko:'50% 매도', en:'Sell 50%'},
+  sellAll: {ko:'전량 매도', en:'Sell All'},
+  buyLabel: {ko:'💵 현재가로 BTC 매수 (USD 사용)', en:'💵 Buy BTC at Market (using USD)'},
+  buy25: {ko:'USD 25% 매수', en:'Buy 25% USD'},
+  buy50: {ko:'USD 50% 매수', en:'Buy 50% USD'},
+  buyAll: {ko:'USD 전액 매수', en:'Buy All USD'},
+  floorTitle: {ko:'마이닝 플로어', en:'Mining Floor'},
+  floorEmpty: {ko:'보유한 채굴기가 없습니다. 아래에서 장비를 구매하세요.', en:'You have no rigs yet. Buy equipment below.'},
+  heatLabel: {ko:'🌡️ 팜 발열', en:'🌡️ Farm Heat'},
+  fanBtn: {ko:'🌀 팬 부스트 (발열 -18)', en:'🌀 Fan Boost (heat -18)'},
+  overclockOff: {ko:'⚡ 오버클럭 OFF', en:'⚡ Overclock OFF'},
+  overclockOn: {ko:'⚡ 오버클럭 ON', en:'⚡ Overclock ON'},
+  overclockNote: {ko:'오버클럭: 해시레이트 +50%, 발열/전력 대폭 증가. 발열 100% 도달 시 장비 손상.', en:'Overclock: hashrate +50%, heat/power rise sharply. Gear breaks at 100% heat.'},
+  strategyTitle: {ko:'채굴 전략', en:'Mining Strategy'},
+  poolBtn: {ko:'🏊 풀 채굴', en:'🏊 Pool Mining'},
+  soloBtn: {ko:'🎰 솔로 채굴', en:'🎰 Solo Mining'},
+  strategyNote: {ko:'풀: 점유율만큼 조금씩 꾸준히 지급. 솔로: 네트워크 블록 생성 시 점유율 확률로 전량 획득 (하이리스크).', en:'Pool: steady small payouts proportional to your share. Solo: chance to win the full reward when a block is found (high risk).'},
+  lbTitle: {ko:'🌐 글로벌 리더보드 (현재 등급)', en:'🌐 Global Leaderboard (current tier)'},
+  nickPlaceholder: {ko:'닉네임 입력', en:'Enter nickname'},
+  lbSubmit: {ko:'순위 등록', en:'Submit Score'},
+  lbRefresh: {ko:'새로고침', en:'Refresh'},
+  lbEmpty: {ko:'아직 등록된 순위가 없습니다.', en:'No scores registered yet.'},
+  lbNote: {ko:'⚠️ 실시간 대전이 아닌 비동기 순위 공유이며, Claude에서 이 화면을 열었을 때만 작동합니다. 파일을 다운로드해 로컬로 열면 작동하지 않습니다.', en:'⚠️ Not real-time — an async shared ranking. Only works when opened inside Claude, not in a downloaded local file.'},
+  shopTitle: {ko:'장비 구매', en:'Buy Equipment'},
+  logTitle: {ko:'운영 로그', en:'Activity Log'},
+  ownedLabel: {ko:'보유', en:'Owned'},
+  hashTag: {ko:'해시', en:'Hash'},
+  powerTag: {ko:'전력', en:'Power'},
+  promoteReady: {ko:'🚀 승급 가능! 클릭하여 다음 등급으로', en:'🚀 Ready to promote! Click to advance'},
+  promoteNotReady: {ko:'🚀 승급하기 (자산 초기화 · 난이도 상승 · 영구 배율 획득)', en:'🚀 Promote (resets assets · harder difficulty · permanent multiplier)'},
+  maxTier: {ko:'🌌 최고 등급 도달', en:'🌌 Max Tier Reached'},
+};
+
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    if(TEXT[key]) el.textContent = TEXT[key][state.lang];
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>{
+    const key = el.getAttribute('data-i18n-title');
+    if(TEXT[key]) el.title = TEXT[key][state.lang];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    const key = el.getAttribute('data-i18n-placeholder');
+    if(TEXT[key]) el.placeholder = TEXT[key][state.lang];
+  });
+  document.title = tr('HASH FARM — 비트코인 채굴 시뮬레이터', 'HASH FARM — Bitcoin Mining Simulator');
+  document.documentElement.lang = state.lang;
+  document.getElementById('langToggle').textContent = state.lang === 'ko' ? 'EN' : '한글';
+  updateFanBtn();
+  const ocBtn = document.getElementById('overclockBtn');
+  ocBtn.textContent = state.overclock ? TEXT.overclockOn[state.lang] : TEXT.overclockOff[state.lang];
+}
+document.getElementById('langToggle').onclick = () => {
+  state.lang = state.lang === 'ko' ? 'en' : 'ko';
+  applyI18n();
+  renderAll();
+};
+
+function costOf(tier){
+  return Math.round(tier.base * Math.pow(1.16, state.owned[tier.key]));
+}
+function myHashrate(){
+  let h = 0;
+  tiersGear.forEach(t => h += state.owned[t.key]*t.hash);
+  h *= state.prestigeMultiplier;
+  if(state.overclock) h *= 1.5;
+  return h * efficiency();
+}
+function myPowerKw(){
+  let p = 0;
+  tiersGear.forEach(t => p += state.owned[t.key]*t.power);
+  if(state.overclock) p *= 1.5;
+  return p;
+}
+function efficiency(){
+  if(state.usd <= 0) return 0; // 전기료 미납 시 채굴 정지
+  if(state.heat < 80) return 1;
+  return Math.max(0, 1 - (state.heat-80)/20);
+}
+function farmActive(){
+  return state.usd > 0;
+}
+function share(){
+  const h = myHashrate();
+  return h / (state.networkHash + h);
+}
+function netWorth(){
+  return state.usd + state.btc*state.btcPrice;
+}
+function baseNetworkHashForTier(i){
+  return 4000 * Math.pow(6, i);
+}
+
+// ---------- 로그 ----------
+function log(msg, cls){
+  const el = document.getElementById('log');
+  const div = document.createElement('div');
+  if(cls) div.className = cls;
+  div.textContent = msg;
+  el.appendChild(div);
+  while(el.children.length > 60) el.removeChild(el.firstChild);
+}
+
+// ---------- 긴급 뉴스 배너 ----------
+let breakingTimeout = null;
+function showBreakingNews(text){
+  const el = document.getElementById('breakingNews');
+  document.getElementById('bnText').textContent = text;
+  el.classList.remove('hidden');
+  requestAnimationFrame(()=> el.classList.add('show'));
+  clearTimeout(breakingTimeout);
+  breakingTimeout = setTimeout(()=>{
+    el.classList.remove('show');
+    setTimeout(()=> el.classList.add('hidden'), 350);
+  }, 7000);
+}
+
+// ---------- 차트 ----------
+function drawChart(){
+  const canvas = document.getElementById('priceChart');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const data = priceHistory;
+  if(data.length < 2) return;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = (max-min) || 1;
+  const rising = data[data.length-1] >= data[0];
+  const color = rising ? '#4ee3a0' : '#ff6b6b';
+
+  ctx.beginPath();
+  data.forEach((p,i)=>{
+    const x = i/(data.length-1)*w;
+    const y = h - ((p-min)/range)*(h*0.8) - h*0.1;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+  ctx.fillStyle = rising ? 'rgba(78,227,160,.12)' : 'rgba(255,107,107,.12)';
+  ctx.fill();
+}
+
+// ---------- 렌더 ----------
+function renderFloor(){
+  const el = document.getElementById('floor');
+  el.innerHTML = '';
+  let any = false;
+  tiersGear.forEach(t => {
+    const n = state.owned[t.key];
+    if(n === 0) return;
+    any = true;
+    const card = document.createElement('div');
+    card.className = 'rig-card';
+    card.innerHTML = `<div class="count-badge">${n}</div>
+      <div class="icon">${t.icon}</div>
+      ${myHashrate()>0 ? '<div class="fan"></div>' : ''}`;
+    el.appendChild(card);
+  });
+  if(!any) el.innerHTML = `<small class="note">${TEXT.floorEmpty[state.lang]}</small>`;
+}
+
+function renderShop(){
+  const el = document.getElementById('shop');
+  el.innerHTML = '';
+  const unlocked = tiersGear.filter(t => t.unlock <= state.tierIndex);
+  const dynMaxHash = Math.max(...unlocked.map(t=>t.hash));
+  const dynMaxPower = Math.max(...unlocked.map(t=>t.power));
+
+  tiersGear.forEach(t => {
+    if(t.unlock > state.tierIndex){
+      const row = document.createElement('div');
+      row.className = 'locked-row';
+      row.innerHTML = `<div class="icon">🔒</div><div class="info"><div class="name">${t.name[state.lang]}</div>
+        <small class="note" style="margin-top:0;">${tr(`${tierNames[t.unlock].ko} 등급에서 해금`, `Unlocks at ${tierNames[t.unlock].en}`)}</small></div>`;
+      el.appendChild(row);
+      return;
+    }
+    const cost = costOf(t);
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="icon">${t.icon}</div>
+      <div class="info">
+        <div class="name">${t.name[state.lang]} <span style="color:var(--text-dim); font-size:10.5px;">${TEXT.ownedLabel[state.lang]} ${state.owned[t.key]}</span></div>
+        <div class="meter-row"><span class="tag">${TEXT.hashTag[state.lang]}</span><div class="meter"><div class="meter-fill hash" style="width:${(t.hash/dynMaxHash*100).toFixed(0)}%"></div></div></div>
+        <div class="meter-row"><span class="tag">${TEXT.powerTag[state.lang]}</span><div class="meter"><div class="meter-fill power" style="width:${(t.power/dynMaxPower*100).toFixed(0)}%"></div></div></div>
+      </div>
+      <button data-key="${t.key}" ${state.usd < cost ? 'disabled':''}>${fmtUsd(cost)}</button>`;
+    el.appendChild(row);
+  });
+  el.querySelectorAll('button[data-key]').forEach(btn=>{
+    btn.onclick = () => buyRig(btn.dataset.key);
+  });
+}
+
+function buyRig(key){
+  const t = tiersGear.find(x=>x.key===key);
+  const cost = costOf(t);
+  if(state.usd >= cost){
+    state.usd -= cost;
+    state.owned[key]++;
+    log(tr(`✅ ${t.name.ko} 1대 구매 (${fmtUsd(cost)})`, `✅ Bought 1x ${t.name.en} (${fmtUsd(cost)})`), 'good');
+    renderAll();
+  }
+}
+
+function renderTier(){
+  document.getElementById('tierName').textContent = tierNames[state.tierIndex][state.lang];
+  document.getElementById('tierMult').textContent = tr(`배율 x${state.prestigeMultiplier.toFixed(2)}`, `Multiplier x${state.prestigeMultiplier.toFixed(2)}`);
+  const net = netWorth();
+  const threshold = tierThresholds[state.tierIndex];
+  const promoteBtn = document.getElementById('promoteBtn');
+  if(threshold){
+    const pct = Math.min(100, net/threshold*100);
+    document.getElementById('progressLabel').textContent = tr(`순자산 ${fmtUsd(net)} / ${fmtUsd(threshold)}`, `Net worth ${fmtUsd(net)} / ${fmtUsd(threshold)}`);
+    document.getElementById('progressFill').style.width = pct+'%';
+    promoteBtn.disabled = net < threshold;
+    promoteBtn.textContent = net>=threshold ? TEXT.promoteReady[state.lang] : TEXT.promoteNotReady[state.lang];
+  } else {
+    document.getElementById('progressLabel').textContent = TEXT.maxTier[state.lang];
+    document.getElementById('progressFill').style.width='100%';
+    promoteBtn.disabled = true;
+    promoteBtn.textContent = TEXT.maxTier[state.lang];
+  }
+  document.getElementById('lbPanel').style.display = state.tierIndex >= 2 ? 'block' : 'none';
+}
+
+function promote(){
+  const oldName = tierNames[state.tierIndex];
+  state.tierIndex++;
+  state.prestigeMultiplier = 1 + 0.15*state.tierIndex;
+  state.usd = Math.round(2000 * (1 + state.tierIndex*0.6));
+  state.btc = 0;
+  tiersGear.forEach(t => state.owned[t.key] = 0);
+  state.networkHash = baseNetworkHashForTier(state.tierIndex);
+  state.btcPrice = 95000;
+  state.emaPrice = 95000;
+  priceHistory = [state.btcPrice];
+  state.heat = 10;
+  state.overclock = false;
+  state.blockReward = 3.125;
+  state.networkBlocksSinceHalving = 0;
+  state.wasInactiveLogged = false;
+  log(tr(
+    `🚀 승급! ${oldName.ko} → ${tierNames[state.tierIndex].ko} (영구 배율 x${state.prestigeMultiplier.toFixed(2)})`,
+    `🚀 Promoted! ${oldName.en} → ${tierNames[state.tierIndex].en} (permanent multiplier x${state.prestigeMultiplier.toFixed(2)})`
+  ), 'good');
+  if(state.tierIndex === 2) log(tr('🌐 글로벌 리더보드가 해금되었습니다!', '🌐 Global leaderboard unlocked!'), 'news');
+  renderAll();
+}
+document.getElementById('promoteBtn').onclick = () => {
+  if(!document.getElementById('promoteBtn').disabled) promote();
+};
+
+function renderStats(){
+  document.getElementById('usdVal').textContent = fmtUsd(state.usd);
+  document.getElementById('btcVal').textContent = fmtBtc(state.btc);
+  document.getElementById('hashVal').textContent = myHashrate().toFixed(3) + ' TH/s';
+  document.getElementById('shareVal').textContent = (share()*100).toFixed(4) + '%';
+  document.getElementById('rewardVal').textContent = state.blockReward.toFixed(3) + ' BTC';
+  document.getElementById('halvingVal').textContent = `${state.networkBlocksSinceHalving}/40`;
+  document.getElementById('heatText').textContent = Math.round(state.heat) + '%';
+  document.getElementById('heatFill').style.width = state.heat + '%';
+
+  document.querySelectorAll('.trade-row button[data-act="sell"]').forEach(b => b.disabled = state.btc <= 0);
+  document.querySelectorAll('.trade-row button[data-act="buy"]').forEach(b => b.disabled = state.usd <= 0);
+
+  document.getElementById('priceBig').textContent = fmtUsd(state.btcPrice);
+  const start = priceHistory[0];
+  const chg = ((state.btcPrice - start)/start*100);
+  const chEl = document.getElementById('priceChange');
+  chEl.textContent = (chg>=0?'▲ ':'▼ ') + Math.abs(chg).toFixed(2) + '%';
+  chEl.className = 'price-change ' + (chg>=0?'up':'down');
+
+  drawChart();
+}
+
+// ---------- 프로필 등급 (현재 등급 내 진행도 기준 칭호) ----------
+const profileRanks = [
+  {frac:0,    title:{ko:'초보 광부', en:'Novice Miner'}, icon:'👶'},
+  {frac:0.2,  title:{ko:'정식 광부', en:'Licensed Miner'}, icon:'⛏️'},
+  {frac:0.45, title:{ko:'자산가 광부', en:'Wealthy Miner'}, icon:'💰'},
+  {frac:0.7,  title:{ko:'채굴 재벌', en:'Mining Tycoon'}, icon:'💎'},
+  {frac:0.95, title:{ko:'전설의 채굴왕', en:'Legendary Mining King'}, icon:'👑'},
+];
+function renderProfile(){
+  const threshold = tierThresholds[state.tierIndex];
+  const net = Math.max(0, netWorth());
+  const frac = threshold ? net/threshold : 1.2;
+  let current = profileRanks[0];
+  profileRanks.forEach(r => { if(frac >= r.frac) current = r; });
+  document.getElementById('profileIcon').textContent = current.icon;
+  document.getElementById('profileTitle').textContent = current.title[state.lang];
+}
+
+function renderAll(){
+  renderFloor();
+  renderShop();
+  renderStats();
+  renderTier();
+  renderProfile();
+}
+
+// ---------- 트레이딩 ----------
+document.querySelectorAll('.trade-row button').forEach(btn=>{
+  btn.onclick = () => {
+    const act = btn.dataset.act, frac = parseFloat(btn.dataset.frac);
+    if(act === 'sell') sellBtc(frac); else buyBtc(frac);
+  };
+});
+function sellBtc(fraction){
+  const amt = state.btc * fraction;
+  if(amt <= 0) return;
+  const usd = amt * state.btcPrice;
+  state.btc -= amt;
+  state.usd += usd;
+  log(tr(
+    `💰 BTC ${fmtBtc(amt)} 매도 → ${fmtUsd(usd)} (시세 ${fmtUsd(state.btcPrice)})`,
+    `💰 Sold ${fmtBtc(amt)} BTC → ${fmtUsd(usd)} (price ${fmtUsd(state.btcPrice)})`
+  ), 'good');
+  renderAll();
+}
+function buyBtc(fraction){
+  const usdAmt = state.usd * fraction;
+  if(usdAmt <= 0) return;
+  const btcBought = usdAmt / state.btcPrice;
+  state.usd -= usdAmt;
+  state.btc += btcBought;
+  log(tr(
+    `🛒 ${fmtUsd(usdAmt)}로 BTC ${fmtBtc(btcBought)} 매수 (시세 ${fmtUsd(state.btcPrice)})`,
+    `🛒 Bought ${fmtBtc(btcBought)} BTC with ${fmtUsd(usdAmt)} (price ${fmtUsd(state.btcPrice)})`
+  ), 'news');
+  renderAll();
+}
+
+// ---------- 버튼 ----------
+document.getElementById('fanBtn').onclick = () => {
+  if(state.fanCooldown > 0) return;
+  state.heat = Math.max(0, state.heat - 18);
+  state.fanCooldown = 5;
+  log(tr('🌀 팬 부스트 가동, 발열 -18', '🌀 Fan boost activated, heat -18'), 'good');
+  updateFanBtn();
+};
+function updateFanBtn(){
+  const btn = document.getElementById('fanBtn');
+  if(state.fanCooldown > 0){
+    btn.disabled = true;
+    btn.textContent = tr(`🌀 팬 재가동까지 ${state.fanCooldown}s`, `🌀 Fan ready in ${state.fanCooldown}s`);
+  } else {
+    btn.disabled = false;
+    btn.textContent = TEXT.fanBtn[state.lang];
+  }
+}
+
+document.getElementById('overclockBtn').onclick = () => {
+  state.overclock = !state.overclock;
+  const btn = document.getElementById('overclockBtn');
+  btn.textContent = state.overclock ? TEXT.overclockOn[state.lang] : TEXT.overclockOff[state.lang];
+  btn.className = state.overclock ? 'toggle-on' : '';
+  log(state.overclock ? tr('⚡ 오버클럭 시작 — 해시레이트/발열 상승', '⚡ Overclock started — hashrate/heat rising') : tr('오버클럭 해제', 'Overclock disabled'), state.overclock?'news':'');
+};
+
+document.getElementById('poolBtn').onclick = () => setPoolMode(true);
+document.getElementById('soloBtn').onclick = () => setPoolMode(false);
+function setPoolMode(pool){
+  state.poolMode = pool;
+  document.getElementById('poolBtn').className = pool ? 'toggle-on' : '';
+  document.getElementById('soloBtn').className = !pool ? 'toggle-on' : '';
+  log(pool ? tr('🏊 풀 채굴 모드로 전환', '🏊 Switched to pool mining') : tr('🎰 솔로 채굴 모드로 전환 — 변동성 매우 큼', '🎰 Switched to solo mining — very high variance'), 'news');
+}
+
+// ---------- 리더보드 (Claude 아티팩트 storage 사용) ----------
+function lbKey(){ return `hashfarm_lb_tier${state.tierIndex}`; }
+async function loadLeaderboard(){
+  if(!window.storage) return [];
+  try{
+    const res = await window.storage.get(lbKey(), true);
+    return res ? JSON.parse(res.value) : [];
+  }catch(e){ return []; }
+}
+function renderLeaderboard(arr){
+  const el = document.getElementById('lbList');
+  if(!arr || arr.length===0){ el.innerHTML=`<small class="note">${TEXT.lbEmpty[state.lang]}</small>`; return; }
+  el.innerHTML = arr.slice(0,10).map((e,i)=>
+    `<div class="lb-row"><span>${i+1}. ${String(e.name).replace(/[<>&]/g,'')}</span><span>${fmtUsd(e.net)}</span></div>`
+  ).join('');
+}
+document.getElementById('lbSubmit').onclick = async () => {
+  if(!window.storage){ log(tr('⚠️ 리더보드는 Claude 아티팩트 환경에서만 사용할 수 있습니다.', '⚠️ The leaderboard only works inside the Claude artifact environment.'), 'warn'); return; }
+  const name = (document.getElementById('nickInput').value.trim() || tr('익명채굴러','AnonMiner')).slice(0,16);
+  const net = netWorth();
+  try{
+    let arr = await loadLeaderboard();
+    arr = arr.filter(e=>e.name !== name);
+    arr.push({name, net, ts:Date.now()});
+    arr.sort((a,b)=>b.net-a.net);
+    arr = arr.slice(0,50);
+    await window.storage.set(lbKey(), JSON.stringify(arr), true);
+    log(tr(`🌐 리더보드에 등록/갱신 완료 (${name})`, `🌐 Leaderboard updated (${name})`), 'good');
+    renderLeaderboard(arr);
+  }catch(e){ log(tr('⚠️ 리더보드 저장 실패', '⚠️ Failed to save leaderboard'), 'warn'); }
+};
+document.getElementById('lbRefresh').onclick = async () => {
+  const arr = await loadLeaderboard();
+  renderLeaderboard(arr);
+};
+
+// ---------- 뉴스 이벤트 ----------
+const ambientEvents = [
+  {msg:{ko:'[뉴스] 전력 도매가 소폭 상승', en:'[News] Wholesale power prices rise slightly'}, effect:()=>{state.elecPrice*=1.08;}},
+  {msg:{ko:'[뉴스] 재생에너지 확대로 전기료 하락', en:'[News] Renewable expansion lowers electricity prices'}, effect:()=>{state.elecPrice=Math.max(0.08,state.elecPrice*0.92);}},
+  {msg:{ko:'[뉴스] 신규 채굴 업체 진입', en:'[News] New mining operators enter the market'}, effect:()=>{state.networkHash*=1.05;}},
+  {msg:{ko:'[뉴스] 폭염특보 — 냉각 효율 저하', en:'[News] Heat wave warning — cooling efficiency drops'}, effect:()=>{state.heat=Math.min(100,state.heat+10);}},
+];
+const breakingEvents = [
+  {reason:{ko:'대형 국가, 비트코인 법정화폐 채택 검토', en:'Major nation considers adopting Bitcoin as legal tender'}, dir:'up'},
+  {reason:{ko:'주요 거래소 해킹 사고 발생', en:'Major exchange suffers a hack'}, dir:'down'},
+  {reason:{ko:'글로벌 연기금, 대량 매수 포지션 공개', en:'Global pension fund discloses large buy position'}, dir:'up'},
+  {reason:{ko:'주요국, 채굴 전면 금지 규제 발표', en:'Major country announces a total mining ban'}, dir:'down'},
+  {reason:{ko:'대형 기관 파산으로 투매 발생', en:'Major institution bankruptcy triggers sell-off'}, dir:'down'},
+  {reason:{ko:'반감기 기대감에 매수세 급증', en:'Halving anticipation drives buying surge'}, dir:'up'},
+  {reason:{ko:'ETF에서 대규모 자금 유출', en:'Large outflows from ETFs'}, dir:'down'},
+  {reason:{ko:'기업들 재무제표에 BTC 편입 발표 잇따라', en:'More companies announce adding BTC to their balance sheets'}, dir:'up'},
+];
+
+// ---------- 가격 모델 (완만한 변동 + 평균회귀 + 드문 급등락) ----------
+function updatePrice(){
+  const noise = (Math.random()-0.5) * 0.003;         // 틱당 약 ±0.15%
+  const reversion = (state.emaPrice - state.btcPrice) / state.btcPrice * 0.03;
+  state.btcPrice = Math.max(2000, state.btcPrice * (1 + noise + reversion));
+  state.emaPrice += (state.btcPrice - state.emaPrice) * 0.005;
+
+  if(Math.random() < 0.004){ // 평균 약 4~5분에 한 번 정도의 큰 이벤트
+    const ev = breakingEvents[Math.floor(Math.random()*breakingEvents.length)];
+    const mag = 0.06 + Math.random()*0.12;
+    state.btcPrice *= ev.dir === 'up' ? (1+mag) : (1-mag);
+    state.emaPrice = state.btcPrice*0.6 + state.emaPrice*0.4;
+    showBreakingNews(tr(
+      `${ev.reason.ko} → ${ev.dir==='up'?'급등':'급락'} ${(mag*100).toFixed(1)}%`,
+      `${ev.reason.en} → ${ev.dir==='up'?'surges':'plunges'} ${(mag*100).toFixed(1)}%`
+    ));
+    log(tr(
+      `🔴 [속보] ${ev.reason.ko} — ${ev.dir==='up'?'+':'-'}${(mag*100).toFixed(1)}%`,
+      `🔴 [BREAKING] ${ev.reason.en} — ${ev.dir==='up'?'+':'-'}${(mag*100).toFixed(1)}%`
+    ), 'warn');
+  }
+
+  priceHistory.push(state.btcPrice);
+  if(priceHistory.length > 90) priceHistory.shift();
+}
+
+// ---------- 메인 루프 ----------
+setInterval(()=>{
+  state.tick++;
+
+  const active = farmActive();
+  const genHeat = active ? myPowerKw() * (state.overclock?2:1) * 6 : 0;
+  state.heat = Math.min(100, Math.max(0, state.heat + genHeat*0.4 - 2));
+  if(state.heat >= 100){
+    const owned = tiersGear.filter(t=>state.owned[t.key]>0);
+    if(owned.length){
+      const t = owned[owned.length-1];
+      state.owned[t.key]--;
+      state.heat = 65;
+      log(tr(`🔥 과열로 ${t.name.ko} 1대 손상! 팬 부스트로 발열을 관리하세요.`, `🔥 Overheating damaged 1x ${t.name.en}! Manage heat with the fan boost.`), 'warn');
+    }
+  }
+
+  if(active){
+    state.usd -= myPowerKw() * state.elecPrice;
+    if(state.wasInactiveLogged){
+      state.wasInactiveLogged = false;
+      log(tr('✅ 자금 확보 완료 — 채굴이 재개되었습니다.', '✅ Funds secured — mining resumed.'), 'good');
+    }
+  } else if(!state.wasInactiveLogged){
+    state.wasInactiveLogged = true;
+    log(tr('⚠️ 전기료 미납으로 채굴기가 전부 정지되었습니다! BTC를 매도해 자금을 확보하세요.', '⚠️ Rigs stopped due to unpaid electricity! Sell BTC to secure funds.'), 'warn');
+  }
+
+  const sh = share();
+  const interval = state.blockIntervalTicks;
+  if(state.poolMode){
+    state.btc += sh * state.blockReward / interval;
+    if(state.tick % interval === 0) state.networkBlocksSinceHalving++;
+  } else {
+    if(state.tick % interval === 0){
+      if(Math.random() < sh){
+        state.btc += state.blockReward;
+        log(tr(`🎉 솔로 채굴 성공! 블록 보상 ${state.blockReward} BTC 획득!`, `🎉 Solo mining success! Won the block reward: ${state.blockReward} BTC!`), 'good');
+      }
+      state.networkBlocksSinceHalving++;
+    }
+  }
+
+  if(state.networkBlocksSinceHalving >= 40){
+    state.blockReward /= 2;
+    state.networkBlocksSinceHalving = 0;
+    log(tr('🎊 반감기 발생! 블록 보상이 절반으로 감소했습니다.', '🎊 Halving occurred! Block reward has been cut in half.'), 'news');
+  }
+
+  if(state.tick % 15 === 0){
+    state.networkHash *= (1 + Math.random()*0.10 + 0.03);
+  }
+
+  updatePrice();
+
+  if(state.tick % 40 === 0 && Math.random() < 0.5){
+    const ev = ambientEvents[Math.floor(Math.random()*ambientEvents.length)];
+    ev.effect();
+    log(ev.msg[state.lang], 'news');
+  }
+
+  if(state.fanCooldown > 0){
+    state.fanCooldown--;
+    updateFanBtn();
+  }
+
+  renderAll();
+}, 1000);
+
+// ---------- 방문자 수 / 좋아요 카운터 (외부 배포 시 작동) ----------
+const COUNTER_BASE = 'https://countapi.mileshilliard.com/api/v1';
+const VIEW_KEY = 'hashfarm_ecc_gwangju_2026_views';
+const LIKE_KEY = 'hashfarm_ecc_gwangju_2026_likes';
+let likedThisSession = false;
+
+async function initCounters(){
+  try{
+    const res = await fetch(`${COUNTER_BASE}/hit/${VIEW_KEY}`).then(r=>r.json());
+    document.getElementById('viewCount').textContent = res.value ?? '-';
+  }catch(e){ document.getElementById('viewCount').textContent = '−'; }
+  try{
+    const res = await fetch(`${COUNTER_BASE}/get/${LIKE_KEY}`).then(r=>r.json());
+    document.getElementById('likeCount').textContent = (res.value ?? 0);
+  }catch(e){ document.getElementById('likeCount').textContent = '0'; }
+}
+document.getElementById('likeBtn').onclick = async () => {
+  if(likedThisSession) return;
+  const btn = document.getElementById('likeBtn');
+  btn.disabled = true;
+  try{
+    const res = await fetch(`${COUNTER_BASE}/hit/${LIKE_KEY}`).then(r=>r.json());
+    document.getElementById('likeCount').textContent = res.value;
+    likedThisSession = true;
+    btn.textContent = TEXT.likeBtnDone[state.lang];
+  }catch(e){
+    btn.disabled = false;
+  }
+};
+initCounters();
+
+applyI18n();
+log(tr('🖥️ HASH FARM 가동 시작. 장비를 구매해 채굴을 시작하세요.', '🖥️ HASH FARM started. Buy equipment to begin mining.'), 'good');
+renderAll();
+</script>
+</body>
+</html>
