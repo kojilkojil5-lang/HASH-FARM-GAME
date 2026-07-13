@@ -151,6 +151,16 @@
   .damage-alert .da-tag{flex-shrink:0;}
   .damage-alert .da-close{margin-left:auto; color:var(--text-dim); font-weight:700;}
 
+  /* ---- 저장 관리 ---- */
+  .save-status{font-size:12px; padding:8px 10px; border-radius:6px; margin-bottom:10px;}
+  .save-status.on{background:rgba(78,227,160,.12); color:var(--green);}
+  .save-status.off{background:rgba(255,171,94,.12); color:var(--amber);}
+  #exportBox textarea, #importBox textarea{
+    width:100%; font-family:var(--mono); font-size:11px; background:var(--panel-alt);
+    color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px; resize:vertical;
+  }
+  #exportBox button, #importBox button{margin-top:8px;}
+
   /* ---- 상점 ---- */
   .shop-item{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);}
   .shop-item:last-child{border-bottom:none;}
@@ -205,6 +215,7 @@
         </div>
       </div>
       <button id="langToggle">EN</button>
+      <button id="resetSaveBtn" title="진행 상황 초기화" data-i18n-title="resetSaveTitle">🗑️</button>
     </div>
   </header>
 
@@ -225,6 +236,24 @@
       <div><span data-i18n="likeLabel">❤️ 좋아요</span> <b id="likeCount">-</b> <button id="likeBtn" data-i18n="likeBtn">좋아요 누르기</button></div>
     </div>
     <small class="note" data-i18n="counterNote">GitHub Pages 등 외부에 배포했을 때 실제로 누적됩니다. 무료 카운터 서비스 사용 · 완벽한 부정클릭 방지는 아님.</small>
+  </div>
+
+  <div class="panel" id="saveInfoPanel">
+    <h2 data-i18n="saveTitle">💾 저장 관리</h2>
+    <div id="autosaveStatus" class="save-status"></div>
+    <div class="btn-row">
+      <button id="exportBtn" data-i18n="exportBtn">📤 내보내기 코드 생성</button>
+      <button id="importToggleBtn" data-i18n="importToggleBtn">📥 코드로 불러오기</button>
+    </div>
+    <div id="exportBox" class="info-box hidden">
+      <textarea id="exportText" rows="3" readonly></textarea>
+      <button id="copyExportBtn" data-i18n="copyBtn">복사하기</button>
+    </div>
+    <div id="importBox" class="info-box hidden">
+      <textarea id="importText" rows="3" placeholder="여기에 코드를 붙여넣으세요" data-i18n-placeholder="importPlaceholder"></textarea>
+      <button id="applyImportBtn" data-i18n="applyImportBtn">적용하기</button>
+    </div>
+    <small class="note" data-i18n="saveNote">다른 기기에서 이어하려면: 이 기기에서 "내보내기"로 코드를 복사한 뒤, 다른 기기의 이 게임 화면에서 "코드로 불러오기"에 붙여넣고 적용하세요.</small>
   </div>
 
   <div class="panel">
@@ -378,6 +407,43 @@ let state = {
 };
 tiersGear.forEach(t => state.owned[t.key] = 0);
 
+// ---------- 자동 저장/불러오기 ----------
+// window.storage가 있으면 Claude 아티팩트 미리보기 환경이므로 localStorage를 쓰지 않음 (외부 배포 시에만 동작)
+const SAVE_KEY = 'hashfarm_save_v1';
+const canUseLocalSave = (typeof window.storage === 'undefined');
+
+function buildSaveObject(){
+  return {
+    usd: state.usd, btc: state.btc, owned: state.owned,
+    tierIndex: state.tierIndex, prestigeMultiplier: state.prestigeMultiplier,
+    networkHash: state.networkHash, btcPrice: state.btcPrice, emaPrice: state.emaPrice,
+    blockReward: state.blockReward, elecPrice: state.elecPrice, heat: state.heat,
+    poolMode: state.poolMode, networkBlocksSinceHalving: state.networkBlocksSinceHalving,
+    lang: state.lang,
+  };
+}
+function saveGame(){
+  if(!canUseLocalSave) return;
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(buildSaveObject())); }catch(e){ /* 저장 실패 시 조용히 무시 */ }
+}
+function loadGame(){
+  if(!canUseLocalSave) return false;
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return false;
+    Object.assign(state, JSON.parse(raw));
+    return true;
+  }catch(e){ return false; }
+}
+const wasLoaded = loadGame();
+
+function encodeSaveCode(obj){
+  return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+}
+function decodeSaveCode(code){
+  return JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+}
+
 let priceHistory = [state.btcPrice];
 
 const fmtUsd = n => (n<0?'-':'') + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
@@ -450,6 +516,20 @@ const TEXT = {
   promoteReady: {ko:'🚀 승급 가능! 클릭하여 다음 등급으로', en:'🚀 Ready to promote! Click to advance'},
   promoteNotReady: {ko:'🚀 승급하기 (자산 초기화 · 난이도 상승 · 영구 배율 획득)', en:'🚀 Promote (resets assets · harder difficulty · permanent multiplier)'},
   maxTier: {ko:'🌌 최고 등급 도달', en:'🌌 Max Tier Reached'},
+  resetSaveTitle: {ko:'진행 상황 초기화', en:'Reset progress'},
+  resetConfirm: {ko:'정말 처음부터 다시 시작할까요? 저장된 진행 상황이 모두 사라집니다.', en:'Really start over? All saved progress will be lost.'},
+  saveTitle: {ko:'💾 저장 관리', en:'💾 Save Management'},
+  autosaveOn: {ko:'✅ 이 브라우저에 자동 저장되고 있어요. 새로고침해도 이어집니다.', en:'✅ Auto-saving to this browser. Progress continues after refresh.'},
+  autosaveOff: {ko:'⚠️ 지금은 미리보기 환경이라 자동 저장이 꺼져 있어요. 실제 배포된 사이트에서는 자동 저장됩니다.', en:'⚠️ Auto-save is off in this preview environment. It works on the actually deployed site.'},
+  exportBtn: {ko:'📤 내보내기 코드 생성', en:'📤 Generate export code'},
+  importToggleBtn: {ko:'📥 코드로 불러오기', en:'📥 Load from code'},
+  copyBtn: {ko:'복사하기', en:'Copy'},
+  copiedBtn: {ko:'✅ 복사됨', en:'✅ Copied'},
+  importPlaceholder: {ko:'여기에 코드를 붙여넣으세요', en:'Paste your code here'},
+  applyImportBtn: {ko:'적용하기', en:'Apply'},
+  saveNote: {ko:'다른 기기에서 이어하려면: 이 기기에서 "내보내기"로 코드를 복사한 뒤, 다른 기기의 이 게임 화면에서 "코드로 불러오기"에 붙여넣고 적용하세요.', en:'To continue on another device: generate a code here with "Export", then paste it into "Load from code" on the game screen on the other device.'},
+  importSuccess: {ko:'📥 코드를 불러와 진행 상황을 적용했습니다.', en:'📥 Progress loaded from code.'},
+  importFail: {ko:'⚠️ 코드가 올바르지 않습니다. 다시 확인해주세요.', en:'⚠️ Invalid code. Please check and try again.'},
 };
 
 function applyI18n(){
@@ -471,11 +551,64 @@ function applyI18n(){
   updateFanBtn();
   const ocBtn = document.getElementById('overclockBtn');
   ocBtn.textContent = state.overclock ? TEXT.overclockOn[state.lang] : TEXT.overclockOff[state.lang];
+  updateSaveStatus();
 }
 document.getElementById('langToggle').onclick = () => {
   state.lang = state.lang === 'ko' ? 'en' : 'ko';
   applyI18n();
   renderAll();
+};
+document.getElementById('resetSaveBtn').onclick = () => {
+  if(confirm(TEXT.resetConfirm[state.lang])){
+    try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+    location.reload();
+  }
+};
+
+function updateSaveStatus(){
+  const el = document.getElementById('autosaveStatus');
+  el.textContent = TEXT[canUseLocalSave ? 'autosaveOn' : 'autosaveOff'][state.lang];
+  el.className = 'save-status ' + (canUseLocalSave ? 'on' : 'off');
+}
+
+document.getElementById('exportBtn').onclick = () => {
+  const code = encodeSaveCode(buildSaveObject());
+  document.getElementById('exportText').value = code;
+  document.getElementById('exportBox').classList.remove('hidden');
+  document.getElementById('importBox').classList.add('hidden');
+};
+document.getElementById('copyExportBtn').onclick = async () => {
+  const textarea = document.getElementById('exportText');
+  const btn = document.getElementById('copyExportBtn');
+  try{
+    await navigator.clipboard.writeText(textarea.value);
+  }catch(e){
+    textarea.select();
+    try{ document.execCommand('copy'); }catch(e2){}
+  }
+  btn.textContent = TEXT.copiedBtn[state.lang];
+  setTimeout(()=>{ btn.textContent = TEXT.copyBtn[state.lang]; }, 2000);
+};
+document.getElementById('importToggleBtn').onclick = () => {
+  document.getElementById('importBox').classList.toggle('hidden');
+  document.getElementById('exportBox').classList.add('hidden');
+};
+document.getElementById('applyImportBtn').onclick = () => {
+  const raw = document.getElementById('importText').value;
+  try{
+    const parsed = decodeSaveCode(raw);
+    if(typeof parsed.usd !== 'number' || typeof parsed.owned !== 'object') throw new Error('invalid');
+    Object.assign(state, parsed);
+    priceHistory = [state.btcPrice];
+    saveGame();
+    applyI18n();
+    renderAll();
+    log(tr('📥 코드를 불러와 진행 상황을 적용했습니다.', '📥 Progress loaded from code.'), 'good');
+    document.getElementById('importBox').classList.add('hidden');
+    document.getElementById('importText').value = '';
+  }catch(e){
+    log(tr('⚠️ 코드가 올바르지 않습니다. 다시 확인해주세요.', '⚠️ Invalid code. Please check and try again.'), 'warn');
+  }
 };
 
 function costOf(tier){
@@ -967,6 +1100,7 @@ setInterval(()=>{
   }
 
   renderAll();
+  saveGame();
 }, 1000);
 
 // ---------- 방문자 수 / 좋아요 카운터 (외부 배포 시 작동) ----------
@@ -1001,7 +1135,10 @@ document.getElementById('likeBtn').onclick = async () => {
 initCounters();
 
 applyI18n();
-log(tr('🖥️ HASH FARM 가동 시작. 장비를 구매해 채굴을 시작하세요.', '🖥️ HASH FARM started. Buy equipment to begin mining.'), 'good');
+log(wasLoaded
+  ? tr('💾 저장된 진행 상황을 불러왔습니다.', '💾 Loaded your saved progress.')
+  : tr('🖥️ HASH FARM 가동 시작. 장비를 구매해 채굴을 시작하세요.', '🖥️ HASH FARM started. Buy equipment to begin mining.'),
+'good');
 renderAll();
 </script>
 </body>
