@@ -132,6 +132,25 @@
   .heat-bar{height:14px; background:var(--panel-alt); border-radius:7px; overflow:hidden; border:1px solid var(--line);}
   .heat-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--green),var(--amber),var(--red)); transition:width .3s;}
 
+  .info-toggle{
+    background:none; border:none; color:var(--blue); font-size:11px; padding:6px 0 0 0;
+    cursor:pointer; text-decoration:underline; text-underline-offset:2px;
+  }
+  .info-box{
+    margin-top:6px; background:var(--panel-alt); border:1px solid var(--line); border-radius:8px;
+    padding:10px 12px; font-size:12px; color:var(--text-dim); line-height:1.6;
+  }
+  .info-box.hidden{display:none;}
+
+  .damage-alert{
+    display:flex; align-items:center; gap:8px; margin-top:10px; padding:10px 12px;
+    background:rgba(255,107,107,.14); border:1px solid var(--red); border-radius:8px;
+    font-size:12px; cursor:pointer;
+  }
+  .damage-alert.hidden{display:none;}
+  .damage-alert .da-tag{flex-shrink:0;}
+  .damage-alert .da-close{margin-left:auto; color:var(--text-dim); font-weight:700;}
+
   /* ---- 상점 ---- */
   .shop-item{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);}
   .shop-item:last-child{border-bottom:none;}
@@ -262,6 +281,11 @@
         <div class="heat-wrap">
           <div class="heat-label"><span data-i18n="heatLabel">🌡️ 팜 발열</span><span id="heatText">0%</span></div>
           <div class="heat-bar"><div class="heat-fill" id="heatFill"></div></div>
+          <button class="info-toggle" id="heatInfoBtn" data-i18n="heatInfoToggle">ⓘ 발열이 뭐예요?</button>
+          <div class="info-box hidden" id="heatInfoBox" data-i18n="heatInfoText">발열은 채굴기가 돌아갈수록 쌓입니다. 80%를 넘으면 채굴 효율이 떨어지고, 100%에 도달하면 보유 채굴기 중 1대가 손상되어 사라집니다. "팬 부스트" 버튼으로 발열을 미리 낮추고, "오버클럭"은 발열이 낮을 때만 짧게 사용하세요.</div>
+          <div class="damage-alert hidden" id="damageAlert">
+            <span class="da-tag">🔥</span><span id="damageText"></span><span class="da-close">✕</span>
+          </div>
         </div>
 
         <div class="btn-row">
@@ -406,6 +430,8 @@ const TEXT = {
   overclockOff: {ko:'⚡ 오버클럭 OFF', en:'⚡ Overclock OFF'},
   overclockOn: {ko:'⚡ 오버클럭 ON', en:'⚡ Overclock ON'},
   overclockNote: {ko:'오버클럭: 해시레이트 +50%, 발열/전력 대폭 증가. 발열 100% 도달 시 장비 손상.', en:'Overclock: hashrate +50%, heat/power rise sharply. Gear breaks at 100% heat.'},
+  heatInfoToggle: {ko:'ⓘ 발열이 뭐예요?', en:'ⓘ What is heat?'},
+  heatInfoText: {ko:'발열은 채굴기가 돌아갈수록 쌓입니다. 80%를 넘으면 채굴 효율이 떨어지고, 100%에 도달하면 보유 채굴기 중 1대가 손상되어 사라집니다. "팬 부스트" 버튼으로 발열을 미리 낮추고, "오버클럭"은 발열이 낮을 때만 짧게 사용하세요.', en:'Heat builds up as your rigs run. Above 80% mining efficiency drops, and at 100% one of your owned rigs is damaged and removed. Use "Fan Boost" to cool down early, and only use "Overclock" briefly when heat is low.'},
   strategyTitle: {ko:'채굴 전략', en:'Mining Strategy'},
   poolBtn: {ko:'🏊 풀 채굴', en:'🏊 Pool Mining'},
   soloBtn: {ko:'🎰 솔로 채굴', en:'🎰 Solo Mining'},
@@ -510,6 +536,23 @@ function showBreakingNews(text){
     setTimeout(()=> el.classList.add('hidden'), 350);
   }, 7000);
 }
+
+// ---------- 발열 정보 토글 / 장비 손상 경고 ----------
+document.getElementById('heatInfoBtn').onclick = () => {
+  document.getElementById('heatInfoBox').classList.toggle('hidden');
+};
+let damageTimeout = null;
+function showDamageAlert(text){
+  const el = document.getElementById('damageAlert');
+  document.getElementById('damageText').textContent = text;
+  el.classList.remove('hidden');
+  clearTimeout(damageTimeout);
+  damageTimeout = setTimeout(()=> el.classList.add('hidden'), 12000);
+}
+document.getElementById('damageAlert').onclick = () => {
+  document.getElementById('damageAlert').classList.add('hidden');
+  clearTimeout(damageTimeout);
+};
 
 // ---------- 차트 ----------
 function drawChart(){
@@ -861,7 +904,12 @@ setInterval(()=>{
       const t = owned[owned.length-1];
       state.owned[t.key]--;
       state.heat = 65;
+      const dmgMsg = tr(
+        `🔥 과열로 ${t.name.ko} 1대가 손상되어 사라졌습니다. 발열이 100%에 도달하면 이렇게 장비가 손상돼요 — 앞으로는 80% 넘기 전에 팬 부스트를 눌러주세요.`,
+        `🔥 1x ${t.name.en} was damaged and removed from overheating. Rigs get damaged when heat hits 100% — use fan boost before it passes 80%.`
+      );
       log(tr(`🔥 과열로 ${t.name.ko} 1대 손상! 팬 부스트로 발열을 관리하세요.`, `🔥 Overheating damaged 1x ${t.name.en}! Manage heat with the fan boost.`), 'warn');
+      showDamageAlert(dmgMsg);
     }
   }
 
@@ -874,6 +922,10 @@ setInterval(()=>{
   } else if(!state.wasInactiveLogged){
     state.wasInactiveLogged = true;
     log(tr('⚠️ 전기료 미납으로 채굴기가 전부 정지되었습니다! BTC를 매도해 자금을 확보하세요.', '⚠️ Rigs stopped due to unpaid electricity! Sell BTC to secure funds.'), 'warn');
+    showDamageAlert(tr(
+      '⚠️ USD 잔고가 마이너스가 되어 전기료를 못 내서 모든 채굴기가 멈췄습니다. BTC를 매도해서 잔고를 플러스로 만들면 자동으로 재개돼요.',
+      '⚠️ Your USD balance went negative and you couldn\'t pay for electricity, so all rigs stopped. Sell BTC to bring your balance positive and mining resumes automatically.'
+    ));
   }
 
   const sh = share();
