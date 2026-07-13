@@ -273,7 +273,7 @@
     <div class="stat" data-i18n-title="tipHash" title="내가 가진 채굴기들의 총 연산력. 높을수록 채굴이 빨라집니다."><div class="label" data-i18n="labelHash">⚡ 내 해시레이트</div><div class="value" id="hashVal">0 TH/s</div></div>
     <div class="stat" data-i18n-title="tipShare" title="전체 채굴자 중 내가 차지하는 비율. 높을수록 채굴 확률·수익이 커집니다."><div class="label" data-i18n="labelShare">📊 네트워크 점유율</div><div class="value" id="shareVal">0%</div></div>
     <div class="stat" data-i18n-title="tipReward" title="블록 하나를 채굴했을 때 받는 BTC 보상. 반감기마다 절반으로 줄어듭니다."><div class="label" data-i18n="labelReward">🎁 블록 보상</div><div class="value" id="rewardVal">3.125 BTC</div></div>
-    <div class="stat" data-i18n-title="tipHalving" title="다음 반감기까지 남은 블록 수. 0이 되면 블록 보상이 절반이 됩니다."><div class="label" data-i18n="labelHalving">⏳ 반감기까지</div><div class="value" id="halvingVal">0/40</div></div>
+    <div class="stat" data-i18n-title="tipHalving" title="다음 반감기까지 남은 블록 수. 0이 되면 블록 보상이 절반이 됩니다."><div class="label" data-i18n="labelHalving">⏳ 반감기까지</div><div class="value" id="halvingVal">0/2000</div></div>
   </div>
 
   <div class="panel price-panel">
@@ -382,6 +382,7 @@ const tierNames = [
   {ko:'🌌 유니버설 (궁극)', en:'🌌 Universal (Ultimate)'},
 ];
 const tierThresholds = [80000, 600000, 5000000, 40000000]; // 마지막 등급은 없음
+const HALVING_BLOCKS = 2000; // 블록 간격(18틱=18초) 기준 약 10시간의 실제 플레이 시간마다 반감기
 
 // ---------- 게임 상태 ----------
 let state = {
@@ -833,7 +834,7 @@ function renderStats(){
   document.getElementById('hashVal').textContent = myHashrate().toFixed(3) + ' TH/s';
   document.getElementById('shareVal').textContent = (share()*100).toFixed(4) + '%';
   document.getElementById('rewardVal').textContent = state.blockReward.toFixed(3) + ' BTC';
-  document.getElementById('halvingVal').textContent = `${state.networkBlocksSinceHalving}/40`;
+  document.getElementById('halvingVal').textContent = `${state.networkBlocksSinceHalving}/${HALVING_BLOCKS}`;
   document.getElementById('heatText').textContent = Math.round(state.heat) + '%';
   document.getElementById('heatFill').style.width = state.heat + '%';
 
@@ -1076,7 +1077,7 @@ setInterval(()=>{
     }
   }
 
-  if(state.networkBlocksSinceHalving >= 40){
+  if(state.networkBlocksSinceHalving >= HALVING_BLOCKS){
     state.blockReward /= 2;
     state.networkBlocksSinceHalving = 0;
     log(tr('🎊 반감기 발생! 블록 보상이 절반으로 감소했습니다.', '🎊 Halving occurred! Block reward has been cut in half.'), 'news');
