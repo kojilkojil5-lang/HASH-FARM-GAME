@@ -411,10 +411,12 @@ tiersGear.forEach(t => state.owned[t.key] = 0);
 // ---------- 자동 저장/불러오기 ----------
 // window.storage가 있으면 Claude 아티팩트 미리보기 환경이므로 localStorage를 쓰지 않음 (외부 배포 시에만 동작)
 const SAVE_KEY = 'hashfarm_save_v1';
+const SAVE_VERSION = 2; // 밸런스(반감기 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
 const canUseLocalSave = (typeof window.storage === 'undefined');
 
 function buildSaveObject(){
   return {
+    version: SAVE_VERSION,
     usd: state.usd, btc: state.btc, owned: state.owned,
     tierIndex: state.tierIndex, prestigeMultiplier: state.prestigeMultiplier,
     networkHash: state.networkHash, btcPrice: state.btcPrice, emaPrice: state.emaPrice,
@@ -427,12 +429,22 @@ function saveGame(){
   if(!canUseLocalSave) return;
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(buildSaveObject())); }catch(e){ /* 저장 실패 시 조용히 무시 */ }
 }
+function migrateSaveData(saved){
+  if(!saved.version || saved.version < SAVE_VERSION){
+    // 반감기 등 밸런스가 바뀐 뒤의 옛 저장값은 해당 수치만 새로 시작 (나머지 진행 상황은 유지)
+    saved.blockReward = 3.125;
+    saved.networkBlocksSinceHalving = 0;
+    saved.version = SAVE_VERSION;
+  }
+  return saved;
+}
 function loadGame(){
   if(!canUseLocalSave) return false;
   try{
     const raw = localStorage.getItem(SAVE_KEY);
     if(!raw) return false;
-    Object.assign(state, JSON.parse(raw));
+    const saved = migrateSaveData(JSON.parse(raw));
+    Object.assign(state, saved);
     return true;
   }catch(e){ return false; }
 }
@@ -562,7 +574,9 @@ document.getElementById('langToggle').onclick = () => {
 document.getElementById('resetSaveBtn').onclick = () => {
   if(confirm(TEXT.resetConfirm[state.lang])){
     try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
-    location.reload();
+    // location.reload()는 일부 모바일 브라우저에서 bfcache로 복원되어 메모리 상태가 그대로 남는 문제가 있어
+    // 쿼리스트링을 바꿔 완전히 새로운 URL로 이동시켜 확실히 새로 불러오게 함
+    location.replace(location.pathname + '?reset=' + Date.now());
   }
 };
 
@@ -597,7 +611,7 @@ document.getElementById('importToggleBtn').onclick = () => {
 document.getElementById('applyImportBtn').onclick = () => {
   const raw = document.getElementById('importText').value;
   try{
-    const parsed = decodeSaveCode(raw);
+    const parsed = migrateSaveData(decodeSaveCode(raw));
     if(typeof parsed.usd !== 'number' || typeof parsed.owned !== 'object') throw new Error('invalid');
     Object.assign(state, parsed);
     priceHistory = [state.btcPrice];
