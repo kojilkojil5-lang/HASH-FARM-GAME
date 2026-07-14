@@ -383,6 +383,7 @@ const tierNames = [
 ];
 const tierThresholds = [80000, 600000, 5000000, 40000000]; // 마지막 등급은 없음
 const HALVING_BLOCKS = 2000; // 블록 간격(18틱=18초) 기준 약 10시간의 실제 플레이 시간마다 반감기
+const NETWORK_HASH_CAP_MULT = 40; // 네트워크 해시레이트는 등급 기본값의 최대 40배까지만 증가 (무한 폭주 방지)
 
 // ---------- 게임 상태 ----------
 let state = {
@@ -411,7 +412,7 @@ tiersGear.forEach(t => state.owned[t.key] = 0);
 // ---------- 자동 저장/불러오기 ----------
 // window.storage가 있으면 Claude 아티팩트 미리보기 환경이므로 localStorage를 쓰지 않음 (외부 배포 시에만 동작)
 const SAVE_KEY = 'hashfarm_save_v1';
-const SAVE_VERSION = 2; // 밸런스(반감기 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
+const SAVE_VERSION = 3; // 밸런스(반감기, 난이도 상한 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
 const canUseLocalSave = (typeof window.storage === 'undefined');
 
 function buildSaveObject(){
@@ -434,6 +435,12 @@ function migrateSaveData(saved){
     // 반감기 등 밸런스가 바뀐 뒤의 옛 저장값은 해당 수치만 새로 시작 (나머지 진행 상황은 유지)
     saved.blockReward = 3.125;
     saved.networkBlocksSinceHalving = 0;
+    // 옛 버전에는 난이도 상한이 없어 폭주했을 수 있으므로, 저장된 등급 기준 상한값으로 즉시 보정
+    const tierIdx = typeof saved.tierIndex === 'number' ? saved.tierIndex : 0;
+    const cap = baseNetworkHashForTier(tierIdx) * NETWORK_HASH_CAP_MULT;
+    if(!saved.networkHash || saved.networkHash > cap){
+      saved.networkHash = cap;
+    }
     saved.version = SAVE_VERSION;
   }
   return saved;
@@ -1098,7 +1105,8 @@ setInterval(()=>{
   }
 
   if(state.tick % 15 === 0){
-    state.networkHash *= (1 + Math.random()*0.10 + 0.03);
+    const cap = baseNetworkHashForTier(state.tierIndex) * NETWORK_HASH_CAP_MULT;
+    state.networkHash = Math.min(state.networkHash * (1 + Math.random()*0.10 + 0.03), cap);
   }
 
   updatePrice();
