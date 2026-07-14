@@ -376,8 +376,8 @@
 <script>
 // ---------- 장비 데이터 (unlock: 해금 등급 인덱스) ----------
 const tiersGear = [
-  {key:'usb', name:{ko:'USB 채굴기', en:'USB Miner'}, icon:'🔌', hash:0.001, power:0.01, base:20, unlock:0},
-  {key:'gpu', name:{ko:'GPU 리그', en:'GPU Rig'}, icon:'🖥️', hash:0.2, power:0.35, base:600, unlock:0},
+  {key:'usb', name:{ko:'USB 채굴기', en:'USB Miner'}, icon:'🔌', hash:0.004, power:0.01, base:20, unlock:0},
+  {key:'gpu', name:{ko:'GPU 리그', en:'GPU Rig'}, icon:'🖥️', hash:0.4, power:0.35, base:600, unlock:0},
   {key:'s9',  name:{ko:'구형 ASIC (S9)', en:'Old ASIC (S9)'}, icon:'📦', hash:20, power:1.3, base:2800, unlock:0},
   {key:'s19', name:{ko:'ASIC S19', en:'ASIC S19'}, icon:'🗄️', hash:160, power:3.25, base:10000, unlock:0},
   {key:'s21', name:{ko:'ASIC S21 Pro', en:'ASIC S21 Pro'}, icon:'🏭', hash:350, power:3.6, base:20000, unlock:0},
@@ -422,11 +422,12 @@ let state = {
   lang: 'ko',
 };
 tiersGear.forEach(t => state.owned[t.key] = 0);
+state.owned.usb = 1; // 시작 화면이 텅 비지 않도록 USB 채굴기 1대 무료 지급
 
 // ---------- 자동 저장/불러오기 ----------
 // window.storage가 있으면 Claude 아티팩트 미리보기 환경이므로 localStorage를 쓰지 않음 (외부 배포 시에만 동작)
 const SAVE_KEY = 'hashfarm_save_v1';
-const SAVE_VERSION = 3; // 밸런스(반감기, 난이도 상한 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
+const SAVE_VERSION = 4; // 밸런스(반감기, 난이도 상한/속도 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
 const canUseLocalSave = (typeof window.storage === 'undefined');
 
 function buildSaveObject(){
@@ -449,12 +450,10 @@ function migrateSaveData(saved){
     // 반감기 등 밸런스가 바뀐 뒤의 옛 저장값은 해당 수치만 새로 시작 (나머지 진행 상황은 유지)
     saved.blockReward = 3.125;
     saved.networkBlocksSinceHalving = 0;
-    // 옛 버전에는 난이도 상한이 없어 폭주했을 수 있으므로, 저장된 등급 기준 상한값으로 즉시 보정
+    // 옛 버전에는 난이도 상승 속도가 너무 빨라 이미 상한까지 도달해있을 수 있으므로,
+    // 등급 기본값으로 되돌려 새로 완화된 속도로 다시 올라가도록 함
     const tierIdx = typeof saved.tierIndex === 'number' ? saved.tierIndex : 0;
-    const cap = baseNetworkHashForTier(tierIdx) * NETWORK_HASH_CAP_MULT;
-    if(!saved.networkHash || saved.networkHash > cap){
-      saved.networkHash = cap;
-    }
+    saved.networkHash = baseNetworkHashForTier(tierIdx);
     saved.version = SAVE_VERSION;
   }
   return saved;
@@ -847,6 +846,7 @@ function promote(){
   state.usd = Math.round(2000 * (1 + state.tierIndex*0.6));
   state.btc = 0;
   tiersGear.forEach(t => state.owned[t.key] = 0);
+  state.owned.usb = 1; // 승급 후에도 화면이 텅 비지 않도록 USB 채굴기 1대 지급
   state.networkHash = baseNetworkHashForTier(state.tierIndex);
   state.btcPrice = 95000;
   state.emaPrice = 95000;
@@ -1144,7 +1144,7 @@ setInterval(()=>{
 
   if(state.tick % 15 === 0){
     const cap = baseNetworkHashForTier(state.tierIndex) * NETWORK_HASH_CAP_MULT;
-    state.networkHash = Math.min(state.networkHash * (1 + Math.random()*0.10 + 0.03), cap);
+    state.networkHash = Math.min(state.networkHash * (1 + Math.random()*0.02 + 0.01), cap);
   }
 
   updatePrice();
