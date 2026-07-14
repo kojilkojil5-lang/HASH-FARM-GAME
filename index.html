@@ -301,7 +301,7 @@
       <button data-act="sell" data-frac="1" data-i18n="sellAll">전량 매도</button>
     </div>
     <div class="trade-row custom-trade">
-      <input type="number" id="sellAmountInput" min="0" step="0.00000001" placeholder="BTC 수량 직접 입력" data-i18n-placeholder="sellAmountPlaceholder">
+      <input type="number" inputmode="numeric" id="sellAmountInput" min="0" step="1" placeholder="매도 금액(USD 환산) 직접 입력" data-i18n-placeholder="sellAmountPlaceholder">
       <button id="sellCustomBtn" data-i18n="customSellBtn">매도</button>
     </div>
     <div class="trade-label" data-i18n="buyLabel">💵 현재가로 BTC 매수 (USD 사용)</div>
@@ -311,7 +311,7 @@
       <button data-act="buy" data-frac="1" data-i18n="buyAll">USD 전액 매수</button>
     </div>
     <div class="trade-row custom-trade">
-      <input type="number" id="buyAmountInput" min="0" step="1" placeholder="USD 금액 직접 입력" data-i18n-placeholder="buyAmountPlaceholder">
+      <input type="number" inputmode="numeric" id="buyAmountInput" min="0" step="1" placeholder="USD 금액 직접 입력" data-i18n-placeholder="buyAmountPlaceholder">
       <button id="buyCustomBtn" data-i18n="customBuyBtn">매수</button>
     </div>
   </div>
@@ -534,7 +534,7 @@ const TEXT = {
   buy25: {ko:'USD 25% 매수', en:'Buy 25% USD'},
   buy50: {ko:'USD 50% 매수', en:'Buy 50% USD'},
   buyAll: {ko:'USD 전액 매수', en:'Buy All USD'},
-  sellAmountPlaceholder: {ko:'BTC 수량 직접 입력', en:'Enter BTC amount'},
+  sellAmountPlaceholder: {ko:'매도 금액(USD 환산) 직접 입력', en:'Enter amount to sell (in USD)'},
   buyAmountPlaceholder: {ko:'USD 금액 직접 입력', en:'Enter USD amount'},
   customSellBtn: {ko:'매도', en:'Sell'},
   customBuyBtn: {ko:'매수', en:'Buy'},
@@ -983,9 +983,10 @@ function buyBtc(fraction){ buyBtcAmount(state.usd * fraction); }
 
 document.getElementById('sellCustomBtn').onclick = () => {
   const input = document.getElementById('sellAmountInput');
-  const val = parseFloat(input.value);
-  if(!val || val <= 0) return;
-  sellBtcAmount(val);
+  const usdVal = parseFloat(input.value);
+  if(!usdVal || usdVal <= 0) return;
+  const btcAmt = usdVal / state.btcPrice;
+  sellBtcAmount(btcAmt);
   input.value = '';
 };
 document.getElementById('buyCustomBtn').onclick = () => {
