@@ -175,6 +175,7 @@
   .shop-item .name{font-size:12.5px; margin-bottom:4px;}
   .meter-row{display:flex; align-items:center; gap:4px; margin-bottom:2px;}
   .meter-row .tag{font-size:9.5px; color:var(--text-dim); width:26px;}
+  .meter-row .spec-num{font-size:9.5px; color:var(--text-dim); width:60px; text-align:right; flex-shrink:0;}
   .meter{flex:1; height:5px; background:var(--bg-deep); border-radius:3px; overflow:hidden;}
   .meter-fill{height:100%; border-radius:3px;}
   .meter-fill.hash{background:var(--green);}
@@ -397,7 +398,7 @@ const tierNames = [
 ];
 const tierThresholds = [80000, 600000, 5000000, 40000000]; // 마지막 등급은 없음
 const HALVING_BLOCKS = 2000; // 블록 간격(18틱=18초) 기준 약 10시간의 실제 플레이 시간마다 반감기
-const NETWORK_HASH_CAP_MULT = 40; // 네트워크 해시레이트는 등급 기본값의 최대 40배까지만 증가 (무한 폭주 방지)
+const NETWORK_HASH_CAP_MULT = 2; // 네트워크 해시레이트는 등급 기본값의 최대 2배까지만 증가 (수익이 절반 이상 꺾이지 않도록)
 
 // ---------- 게임 상태 ----------
 function createFreshState(lang){
@@ -431,7 +432,7 @@ let state = createFreshState('ko');
 // ---------- 자동 저장/불러오기 ----------
 // window.storage가 있으면 Claude 아티팩트 미리보기 환경이므로 localStorage를 쓰지 않음 (외부 배포 시에만 동작)
 const SAVE_KEY = 'hashfarm_save_v1';
-const SAVE_VERSION = 6; // 밸런스(반감기, 난이도 기준값/상한/속도, 초반 장비 지급 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
+const SAVE_VERSION = 8; // 밸런스(반감기, 난이도 기준값/상한/속도, 초반 장비 지급 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
 const canUseLocalSave = (typeof window.storage === 'undefined');
 
 function buildSaveObject(){
@@ -815,8 +816,8 @@ function renderShop(){
       <div class="icon">${t.icon}</div>
       <div class="info">
         <div class="name">${t.name[state.lang]} <span style="color:var(--text-dim); font-size:10.5px;">${TEXT.ownedLabel[state.lang]} ${state.owned[t.key]}</span></div>
-        <div class="meter-row"><span class="tag">${TEXT.hashTag[state.lang]}</span><div class="meter"><div class="meter-fill hash" style="width:${(t.hash/dynMaxHash*100).toFixed(0)}%"></div></div></div>
-        <div class="meter-row"><span class="tag">${TEXT.powerTag[state.lang]}</span><div class="meter"><div class="meter-fill power" style="width:${(t.power/dynMaxPower*100).toFixed(0)}%"></div></div></div>
+        <div class="meter-row"><span class="tag">${TEXT.hashTag[state.lang]}</span><div class="meter"><div class="meter-fill hash" style="width:${(t.hash/dynMaxHash*100).toFixed(0)}%"></div></div><span class="spec-num">${t.hash} TH/s</span></div>
+        <div class="meter-row"><span class="tag">${TEXT.powerTag[state.lang]}</span><div class="meter"><div class="meter-fill power" style="width:${(t.power/dynMaxPower*100).toFixed(0)}%"></div></div><span class="spec-num">${t.power} kW</span></div>
       </div>
       <button data-key="${t.key}" ${state.usd < cost ? 'disabled':''}>${fmtUsd(cost)}</button>`;
     el.appendChild(row);
