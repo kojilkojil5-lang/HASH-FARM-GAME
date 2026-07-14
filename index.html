@@ -118,7 +118,19 @@
     border:1px solid var(--line); border-radius:6px; color:var(--text); padding:7px 10px; font-size:12px;
   }
   .custom-trade button{flex:1; min-width:60px;}
+  .custom-trade select{
+    flex:1.5; min-width:90px; font-family:var(--mono); background:var(--panel-alt);
+    border:1px solid var(--line); border-radius:6px; color:var(--text); padding:7px 6px; font-size:12px;
+  }
   .trade-label{font-size:11px; color:var(--text-dim); width:100%; margin-top:8px;}
+  .order-row{
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    background:var(--panel-alt); border:1px solid var(--line); border-radius:6px;
+    padding:7px 10px; margin-top:6px; font-size:11.5px;
+  }
+  .order-row button{flex:0 0 auto; padding:4px 8px; font-size:11px;}
+  .order-row.sell{border-left:3px solid var(--green);}
+  .order-row.buy{border-left:3px solid var(--blue);}
 
   /* ---- 마이닝 플로어 ---- */
   .floor{display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin-bottom:14px;}
@@ -313,6 +325,23 @@
       <input type="number" inputmode="numeric" id="buyAmountInput" min="0" step="1" placeholder="USD 금액 직접 입력" data-i18n-placeholder="buyAmountPlaceholder">
       <button id="buyCustomBtn" data-i18n="customBuyBtn">매수</button>
     </div>
+
+    <div class="trade-label" data-i18n="limitOrderTitle">📋 예약 주문 (목표가 도달 시 자동 체결)</div>
+    <div class="trade-row custom-trade">
+      <input type="number" inputmode="numeric" id="limitSellPrice" min="0" step="1" placeholder="매도 목표가(USD)" data-i18n-placeholder="limitSellPricePh">
+      <select id="limitSellFrac">
+        <option value="0.25" data-i18n="sell25">25% 매도</option>
+        <option value="0.5" data-i18n="sell50">50% 매도</option>
+        <option value="1" data-i18n="sellAll">전량 매도</option>
+      </select>
+      <button id="limitSellAddBtn" data-i18n="limitAddBtn">예약</button>
+    </div>
+    <div class="trade-row custom-trade">
+      <input type="number" inputmode="numeric" id="limitBuyPrice" min="0" step="1" placeholder="매수 목표가(USD)" data-i18n-placeholder="limitBuyPricePh">
+      <input type="number" inputmode="numeric" id="limitBuyUsd" min="0" step="1" placeholder="매수 금액(USD)" data-i18n-placeholder="limitBuyUsdPh">
+      <button id="limitBuyAddBtn" data-i18n="limitAddBtn">예약</button>
+    </div>
+    <div id="pendingOrdersList"></div>
   </div>
 
   <div class="grid">
@@ -424,6 +453,7 @@ function createFreshState(lang){
     wasInactiveLogged: false,
     lang: lang || 'ko',
     lastTickTime: Date.now(),
+    pendingOrders: [],
   };
   tiersGear.forEach(t => s.owned[t.key] = 0);
   s.owned.usb = 1; // 시작 화면이 텅 비지 않도록 USB 채굴기 1대 무료 지급
@@ -446,6 +476,7 @@ function buildSaveObject(){
     blockReward: state.blockReward, elecPrice: state.elecPrice, heat: state.heat,
     poolMode: state.poolMode, networkBlocksSinceHalving: state.networkBlocksSinceHalving,
     lang: state.lang, lastTickTime: Date.now(),
+    pendingOrders: state.pendingOrders,
   };
 }
 function saveGame(){
@@ -453,6 +484,7 @@ function saveGame(){
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(buildSaveObject())); }catch(e){ /* 저장 실패 시 조용히 무시 */ }
 }
 function migrateSaveData(saved){
+  if(!Array.isArray(saved.pendingOrders)) saved.pendingOrders = []; // 예약 주문 필드가 없는 옛 저장값 보정
   if(!saved.version || saved.version < SAVE_VERSION){
     // 반감기 등 밸런스가 바뀐 뒤의 옛 저장값은 해당 수치만 새로 시작 (나머지 진행 상황은 유지)
     saved.blockReward = 3.125;
@@ -537,6 +569,13 @@ const TEXT = {
   buyAmountPlaceholder: {ko:'USD 금액 직접 입력', en:'Enter USD amount'},
   customSellBtn: {ko:'매도', en:'Sell'},
   customBuyBtn: {ko:'매수', en:'Buy'},
+  limitOrderTitle: {ko:'📋 예약 주문 (목표가 도달 시 자동 체결)', en:'📋 Limit Orders (auto-executes at target price)'},
+  limitSellPricePh: {ko:'매도 목표가(USD)', en:'Sell target price (USD)'},
+  limitBuyPricePh: {ko:'매수 목표가(USD)', en:'Buy target price (USD)'},
+  limitBuyUsdPh: {ko:'매수 금액(USD)', en:'Buy amount (USD)'},
+  limitAddBtn: {ko:'예약', en:'Set'},
+  limitCancelBtn: {ko:'취소', en:'Cancel'},
+  limitOrdersEmpty: {ko:'등록된 예약 주문이 없습니다.', en:'No pending orders.'},
   floorTitle: {ko:'마이닝 플로어', en:'Mining Floor'},
   floorEmpty: {ko:'보유한 채굴기가 없습니다. 아래에서 장비를 구매하세요.', en:'You have no rigs yet. Buy equipment below.'},
   heatLabel: {ko:'🌡️ 팜 발열', en:'🌡️ Farm Heat'},
@@ -943,6 +982,7 @@ function renderAll(){
   renderStats();
   renderTier();
   renderProfile();
+  renderPendingOrders();
 }
 
 // ---------- 트레이딩 ----------
@@ -995,6 +1035,84 @@ document.getElementById('buyCustomBtn').onclick = () => {
   buyBtcAmount(val);
   input.value = '';
 };
+
+// ---------- 예약 주문 (지정가) ----------
+let orderIdCounter = 1;
+function renderPendingOrders(){
+  const el = document.getElementById('pendingOrdersList');
+  if(!state.pendingOrders || state.pendingOrders.length === 0){
+    el.innerHTML = `<small class="note">${TEXT.limitOrdersEmpty[state.lang]}</small>`;
+    return;
+  }
+  el.innerHTML = state.pendingOrders.map(o => {
+    if(o.type === 'sell'){
+      const label = tr(
+        `📈 ${fmtUsd(o.targetPrice)} 도달 시 ${(o.frac*100).toFixed(0)}% 매도`,
+        `📈 Sell ${(o.frac*100).toFixed(0)}% at ${fmtUsd(o.targetPrice)}`
+      );
+      return `<div class="order-row sell">${label}<button data-cancel="${o.id}">${TEXT.limitCancelBtn[state.lang]}</button></div>`;
+    } else {
+      const label = tr(
+        `📉 ${fmtUsd(o.targetPrice)} 이하 시 ${fmtUsd(o.usdAmount)} 매수`,
+        `📉 Buy ${fmtUsd(o.usdAmount)} at or below ${fmtUsd(o.targetPrice)}`
+      );
+      return `<div class="order-row buy">${label}<button data-cancel="${o.id}">${TEXT.limitCancelBtn[state.lang]}</button></div>`;
+    }
+  }).join('');
+  el.querySelectorAll('button[data-cancel]').forEach(btn=>{
+    btn.onclick = () => {
+      const id = parseInt(btn.dataset.cancel, 10);
+      state.pendingOrders = state.pendingOrders.filter(o => o.id !== id);
+      saveGame();
+      renderPendingOrders();
+    };
+  });
+}
+
+document.getElementById('limitSellAddBtn').onclick = () => {
+  const priceInput = document.getElementById('limitSellPrice');
+  const targetPrice = parseFloat(priceInput.value);
+  const frac = parseFloat(document.getElementById('limitSellFrac').value);
+  if(!targetPrice || targetPrice <= 0) return;
+  state.pendingOrders.push({ id: orderIdCounter++, type:'sell', targetPrice, frac });
+  priceInput.value = '';
+  saveGame();
+  renderPendingOrders();
+  log(tr(`📋 예약 매도 등록: ${fmtUsd(targetPrice)} 도달 시 ${(frac*100).toFixed(0)}% 매도`, `📋 Limit sell set: ${(frac*100).toFixed(0)}% at ${fmtUsd(targetPrice)}`), 'news');
+};
+document.getElementById('limitBuyAddBtn').onclick = () => {
+  const priceInput = document.getElementById('limitBuyPrice');
+  const usdInput = document.getElementById('limitBuyUsd');
+  const targetPrice = parseFloat(priceInput.value);
+  const usdAmount = parseFloat(usdInput.value);
+  if(!targetPrice || targetPrice <= 0 || !usdAmount || usdAmount <= 0) return;
+  state.pendingOrders.push({ id: orderIdCounter++, type:'buy', targetPrice, usdAmount });
+  priceInput.value = '';
+  usdInput.value = '';
+  saveGame();
+  renderPendingOrders();
+  log(tr(`📋 예약 매수 등록: ${fmtUsd(targetPrice)} 이하 시 ${fmtUsd(usdAmount)} 매수`, `📋 Limit buy set: ${fmtUsd(usdAmount)} at or below ${fmtUsd(targetPrice)}`), 'news');
+};
+
+function checkPendingOrders(){
+  if(!state.pendingOrders || state.pendingOrders.length === 0) return;
+  const remaining = [];
+  state.pendingOrders.forEach(o => {
+    if(o.type === 'sell' && state.btcPrice >= o.targetPrice){
+      const amt = state.btc * o.frac;
+      if(amt > 0){
+        sellBtcAmount(amt);
+        log(tr(`✅ 예약 매도 체결: ${fmtUsd(o.targetPrice)} 도달 (${(o.frac*100).toFixed(0)}%)`, `✅ Limit sell executed at ${fmtUsd(o.targetPrice)} (${(o.frac*100).toFixed(0)}%)`), 'good');
+      }
+    } else if(o.type === 'buy' && state.btcPrice <= o.targetPrice){
+      buyBtcAmount(o.usdAmount);
+      log(tr(`✅ 예약 매수 체결: ${fmtUsd(o.targetPrice)} 이하 (${fmtUsd(o.usdAmount)})`, `✅ Limit buy executed at ${fmtUsd(o.targetPrice)} (${fmtUsd(o.usdAmount)})`), 'good');
+    } else {
+      remaining.push(o);
+    }
+  });
+  state.pendingOrders = remaining;
+}
 
 // ---------- 버튼 ----------
 document.getElementById('fanBtn').onclick = () => {
@@ -1176,6 +1294,7 @@ setInterval(()=>{
   }
 
   updatePrice();
+  checkPendingOrders();
 
   if(state.tick % 40 === 0 && Math.random() < 0.5){
     const ev = ambientEvents[Math.floor(Math.random()*ambientEvents.length)];
