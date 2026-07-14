@@ -113,6 +113,12 @@
   canvas#priceChart{width:100%; height:130px; display:block; background:var(--panel-alt); border-radius:8px; border:1px solid var(--line);}
   .trade-row{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;}
   .trade-row button{flex:1; min-width:70px;}
+  .custom-trade{align-items:stretch;}
+  .custom-trade input{
+    flex:2; min-width:120px; font-family:var(--mono); background:var(--panel-alt);
+    border:1px solid var(--line); border-radius:6px; color:var(--text); padding:7px 10px; font-size:12px;
+  }
+  .custom-trade button{flex:1; min-width:60px;}
   .trade-label{font-size:11px; color:var(--text-dim); width:100%; margin-top:8px;}
 
   /* ---- 마이닝 플로어 ---- */
@@ -293,11 +299,19 @@
       <button data-act="sell" data-frac="0.5" data-i18n="sell50">50% 매도</button>
       <button data-act="sell" data-frac="1" data-i18n="sellAll">전량 매도</button>
     </div>
+    <div class="trade-row custom-trade">
+      <input type="number" id="sellAmountInput" min="0" step="0.00000001" placeholder="BTC 수량 직접 입력" data-i18n-placeholder="sellAmountPlaceholder">
+      <button id="sellCustomBtn" data-i18n="customSellBtn">매도</button>
+    </div>
     <div class="trade-label" data-i18n="buyLabel">💵 현재가로 BTC 매수 (USD 사용)</div>
     <div class="trade-row">
       <button data-act="buy" data-frac="0.25" data-i18n="buy25">USD 25% 매수</button>
       <button data-act="buy" data-frac="0.5" data-i18n="buy50">USD 50% 매수</button>
       <button data-act="buy" data-frac="1" data-i18n="buyAll">USD 전액 매수</button>
+    </div>
+    <div class="trade-row custom-trade">
+      <input type="number" id="buyAmountInput" min="0" step="1" placeholder="USD 금액 직접 입력" data-i18n-placeholder="buyAmountPlaceholder">
+      <button id="buyCustomBtn" data-i18n="customBuyBtn">매수</button>
     </div>
   </div>
 
@@ -509,6 +523,10 @@ const TEXT = {
   buy25: {ko:'USD 25% 매수', en:'Buy 25% USD'},
   buy50: {ko:'USD 50% 매수', en:'Buy 50% USD'},
   buyAll: {ko:'USD 전액 매수', en:'Buy All USD'},
+  sellAmountPlaceholder: {ko:'BTC 수량 직접 입력', en:'Enter BTC amount'},
+  buyAmountPlaceholder: {ko:'USD 금액 직접 입력', en:'Enter USD amount'},
+  customSellBtn: {ko:'매도', en:'Sell'},
+  customBuyBtn: {ko:'매수', en:'Buy'},
   floorTitle: {ko:'마이닝 플로어', en:'Mining Floor'},
   floorEmpty: {ko:'보유한 채굴기가 없습니다. 아래에서 장비를 구매하세요.', en:'You have no rigs yet. Buy equipment below.'},
   heatLabel: {ko:'🌡️ 팜 발열', en:'🌡️ Farm Heat'},
@@ -861,6 +879,8 @@ function renderStats(){
 
   document.querySelectorAll('.trade-row button[data-act="sell"]').forEach(b => b.disabled = state.btc <= 0);
   document.querySelectorAll('.trade-row button[data-act="buy"]').forEach(b => b.disabled = state.usd <= 0);
+  document.getElementById('sellCustomBtn').disabled = state.btc <= 0;
+  document.getElementById('buyCustomBtn').disabled = state.usd <= 0;
 
   document.getElementById('priceBig').textContent = fmtUsd(state.btcPrice);
   const start = priceHistory[0];
@@ -899,14 +919,14 @@ function renderAll(){
 }
 
 // ---------- 트레이딩 ----------
-document.querySelectorAll('.trade-row button').forEach(btn=>{
+document.querySelectorAll('.trade-row button[data-act]').forEach(btn=>{
   btn.onclick = () => {
     const act = btn.dataset.act, frac = parseFloat(btn.dataset.frac);
     if(act === 'sell') sellBtc(frac); else buyBtc(frac);
   };
 });
-function sellBtc(fraction){
-  const amt = state.btc * fraction;
+function sellBtcAmount(amt){
+  amt = Math.min(Math.max(0, amt || 0), state.btc);
   if(amt <= 0) return;
   const usd = amt * state.btcPrice;
   state.btc -= amt;
@@ -917,8 +937,10 @@ function sellBtc(fraction){
   ), 'good');
   renderAll();
 }
-function buyBtc(fraction){
-  const usdAmt = state.usd * fraction;
+function sellBtc(fraction){ sellBtcAmount(state.btc * fraction); }
+
+function buyBtcAmount(usdAmt){
+  usdAmt = Math.min(Math.max(0, usdAmt || 0), state.usd);
   if(usdAmt <= 0) return;
   const btcBought = usdAmt / state.btcPrice;
   state.usd -= usdAmt;
@@ -929,6 +951,22 @@ function buyBtc(fraction){
   ), 'news');
   renderAll();
 }
+function buyBtc(fraction){ buyBtcAmount(state.usd * fraction); }
+
+document.getElementById('sellCustomBtn').onclick = () => {
+  const input = document.getElementById('sellAmountInput');
+  const val = parseFloat(input.value);
+  if(!val || val <= 0) return;
+  sellBtcAmount(val);
+  input.value = '';
+};
+document.getElementById('buyCustomBtn').onclick = () => {
+  const input = document.getElementById('buyAmountInput');
+  const val = parseFloat(input.value);
+  if(!val || val <= 0) return;
+  buyBtcAmount(val);
+  input.value = '';
+};
 
 // ---------- 버튼 ----------
 document.getElementById('fanBtn').onclick = () => {
