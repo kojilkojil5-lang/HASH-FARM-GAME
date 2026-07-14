@@ -399,6 +399,8 @@ const tierNames = [
 const tierThresholds = [80000, 600000, 5000000, 40000000]; // 마지막 등급은 없음
 const HALVING_BLOCKS = 2000; // 블록 간격(18틱=18초) 기준 약 10시간의 실제 플레이 시간마다 반감기
 const NETWORK_HASH_CAP_MULT = 2; // 네트워크 해시레이트는 등급 기본값의 최대 2배까지만 증가 (수익이 절반 이상 꺾이지 않도록)
+const OFFLINE_CAP_HOURS = 8; // 화면을 벗어나 있던 시간 중 최대 이만큼만 보정 채굴 반영
+const OFFLINE_EFFICIENCY = 0.5; // 오프라인 중에는 발열/오버클럭 관리를 못 하므로 절반 효율로 반영
 
 // ---------- 게임 상태 ----------
 function createFreshState(lang){
@@ -422,6 +424,7 @@ function createFreshState(lang){
     blockIntervalTicks: 18,
     wasInactiveLogged: false,
     lang: lang || 'ko',
+    lastTickTime: Date.now(),
   };
   tiersGear.forEach(t => s.owned[t.key] = 0);
   s.owned.usb = 1; // 시작 화면이 텅 비지 않도록 USB 채굴기 1대 무료 지급
@@ -443,7 +446,7 @@ function buildSaveObject(){
     networkHash: state.networkHash, btcPrice: state.btcPrice, emaPrice: state.emaPrice,
     blockReward: state.blockReward, elecPrice: state.elecPrice, heat: state.heat,
     poolMode: state.poolMode, networkBlocksSinceHalving: state.networkBlocksSinceHalving,
-    lang: state.lang,
+    lang: state.lang, lastTickTime: Date.now(),
   };
 }
 function saveGame(){
@@ -1220,12 +1223,55 @@ document.getElementById('likeBtn').onclick = async () => {
 };
 initCounters();
 
+function applyOfflineProgress(){
+  const now = Date.now();
+  const lastTime = state.lastTickTime || now;
+  const elapsedSec = Math.floor((now - lastTime) / 1000);
+  if(elapsedSec < 30) return; // 너무 짧은 공백은 무시
+  const cappedSec = Math.min(elapsedSec, OFFLINE_CAP_HOURS * 3600);
+
+  const hash = myHashrate();
+  if(hash > 0 && state.usd > 0){
+    const sh = hash / (state.networkHash + hash);
+    const btcPerSec = sh * state.blockReward / state.blockIntervalTicks;
+    const btcEarned = btcPerSec * cappedSec * OFFLINE_EFFICIENCY;
+    const costTotal = myPowerKw() * state.elecPrice * cappedSec * OFFLINE_EFFICIENCY;
+    state.btc += btcEarned;
+    state.usd -= costTotal;
+    const hrs = (cappedSec/3600).toFixed(1);
+    if(btcEarned > 0){
+      log(tr(
+        `⏱️ 자리를 비운 ${hrs}시간 동안 ${fmtBtc(btcEarned)} BTC를 채굴했습니다 (전기료 ${fmtUsd(costTotal)} 차감, 오프라인 효율 50%).`,
+        `⏱️ While away for ${hrs}h, mined ${fmtBtc(btcEarned)} BTC (electricity ${fmtUsd(costTotal)} deducted, 50% offline efficiency).`
+      ), 'good');
+    }
+  }
+  if(elapsedSec > cappedSec){
+    log(tr(
+      `ℹ️ 오프라인 보정 채굴은 최대 ${OFFLINE_CAP_HOURS}시간까지만 반영돼요.`,
+      `ℹ️ Offline mining is only credited up to ${OFFLINE_CAP_HOURS} hours.`
+    ), 'news');
+  }
+  state.lastTickTime = now;
+}
+
 applyI18n();
+applyOfflineProgress();
 log(wasLoaded
   ? tr('💾 저장된 진행 상황을 불러왔습니다.', '💾 Loaded your saved progress.')
   : tr('🖥️ HASH FARM 가동 시작. 장비를 구매해 채굴을 시작하세요.', '🖥️ HASH FARM started. Buy equipment to begin mining.'),
 'good');
 renderAll();
+saveGame();
+
+// 페이지가 새로 로드되지 않고 화면만 껐다 켜지는 경우(모바일 백그라운드 등)에도 오프라인 보정이 반영되도록
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible'){
+    applyOfflineProgress();
+    renderAll();
+    saveGame();
+  }
+});
 </script>
 </body>
 </html>
