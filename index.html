@@ -414,6 +414,7 @@ const tiersGear = [
   {key:'hydro', name:{ko:'수력 메가팜', en:'Hydro Mega Farm'}, icon:'💧', hash:2400, power:18, base:220000, unlock:2},
   {key:'fusion', name:{ko:'핵융합 팜', en:'Fusion Farm'}, icon:'🔆', hash:5000, power:30, base:500000, unlock:3},
   {key:'quantum', name:{ko:'퀀텀 해시 어레이', en:'Quantum Hash Array'}, icon:'✨', hash:8000, power:40, base:900000, unlock:4},
+  {key:'cooler', name:{ko:'쿨러 유닛', en:'Cooler Unit'}, icon:'❄️', hash:0, power:0, base:150, unlock:0, cooling:2},
 ];
 
 // ---------- 등급 (프레스티지) ----------
@@ -464,7 +465,7 @@ let state = createFreshState('ko');
 // ---------- 자동 저장/불러오기 ----------
 // window.storage가 있으면 Claude 아티팩트 미리보기 환경이므로 localStorage를 쓰지 않음 (외부 배포 시에만 동작)
 const SAVE_KEY = 'hashfarm_save_v1';
-const SAVE_VERSION = 8; // 밸런스(반감기, 난이도 기준값/상한/속도, 초반 장비 지급 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
+const SAVE_VERSION = 9; // 밸런스(반감기, 난이도 기준값/상한/속도, 초반 장비 지급, 발열/쿨러 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
 const canUseLocalSave = (typeof window.storage === 'undefined');
 
 function buildSaveObject(){
@@ -496,6 +497,13 @@ function migrateSaveData(saved){
     // 초반 USB 채굴기 무료 지급이 새로 생겼으므로, 기존 플레이어에게도 보정 지급 (한 번도 못 받았다면)
     if(saved.owned && !saved.owned.usb){
       saved.owned.usb = 1;
+    }
+    // 쿨러 유닛이 새로 생겼으므로 없는 필드는 0으로 채워주고, 발열도 안전한 수준으로 보정
+    if(saved.owned && typeof saved.owned.cooler !== 'number'){
+      saved.owned.cooler = 0;
+    }
+    if(typeof saved.heat === 'number' && saved.heat > 60){
+      saved.heat = 40;
     }
     saved.version = SAVE_VERSION;
   }
@@ -584,7 +592,7 @@ const TEXT = {
   overclockOn: {ko:'⚡ 오버클럭 ON', en:'⚡ Overclock ON'},
   overclockNote: {ko:'오버클럭: 해시레이트 +50%, 발열/전력 대폭 증가. 발열 100% 도달 시 장비 손상.', en:'Overclock: hashrate +50%, heat/power rise sharply. Gear breaks at 100% heat.'},
   heatInfoToggle: {ko:'ⓘ 발열이 뭐예요?', en:'ⓘ What is heat?'},
-  heatInfoText: {ko:'발열은 채굴기가 돌아갈수록 쌓입니다. 80%를 넘으면 채굴 효율이 떨어지고, 100%에 도달하면 보유 채굴기 중 1대가 손상되어 사라집니다. "팬 부스트" 버튼으로 발열을 미리 낮추고, "오버클럭"은 발열이 낮을 때만 짧게 사용하세요.', en:'Heat builds up as your rigs run. Above 80% mining efficiency drops, and at 100% one of your owned rigs is damaged and removed. Use "Fan Boost" to cool down early, and only use "Overclock" briefly when heat is low.'},
+  heatInfoText: {ko:'발열은 채굴기가 돌아갈수록 쌓입니다. 80%를 넘으면 채굴 효율이 떨어지고, 100%에 도달하면 가장 저렴한 장비부터 1대씩 손상되어 사라집니다. "쿨러 유닛"을 몇 개 사두면 방치해도 발열이 안정적으로 유지돼요 — 방치형으로 플레이하고 싶다면 쿨러 구매를 추천합니다. "팬 부스트"는 즉시 냉각, "오버클럭"은 발열이 낮을 때만 짧게 사용하세요.', en:'Heat builds up as your rigs run. Above 80% mining efficiency drops, and at 100% your cheapest rig is damaged and removed first. Buy a few "Cooler Units" to keep heat stable even while idle — recommended if you want to play hands-off. "Fan Boost" cools instantly, and only use "Overclock" briefly when heat is low.'},
   strategyTitle: {ko:'채굴 전략', en:'Mining Strategy'},
   poolBtn: {ko:'🏊 풀 채굴', en:'🏊 Pool Mining'},
   soloBtn: {ko:'🎰 솔로 채굴', en:'🎰 Solo Mining'},
@@ -600,6 +608,7 @@ const TEXT = {
   ownedLabel: {ko:'보유', en:'Owned'},
   hashTag: {ko:'해시', en:'Hash'},
   powerTag: {ko:'전력', en:'Power'},
+  coolTag: {ko:'냉각', en:'Cooling'},
   promoteReady: {ko:'🚀 승급 가능! 클릭하여 다음 등급으로', en:'🚀 Ready to promote! Click to advance'},
   promoteNotReady: {ko:'🚀 승급하기 (자산 초기화 · 난이도 상승 · 영구 배율 획득)', en:'🚀 Promote (resets assets · harder difficulty · permanent multiplier)'},
   maxTier: {ko:'🌌 최고 등급 도달', en:'🌌 Max Tier Reached'},
@@ -853,12 +862,15 @@ function renderShop(){
     const cost = costOf(t);
     const row = document.createElement('div');
     row.className = 'shop-item';
+    const specHtml = t.cooling
+      ? `<div class="meter-row"><span class="tag">${TEXT.coolTag[state.lang]}</span><div class="meter"><div class="meter-fill hash" style="width:100%"></div></div><span class="spec-num">+${t.cooling}</span></div>`
+      : `<div class="meter-row"><span class="tag">${TEXT.hashTag[state.lang]}</span><div class="meter"><div class="meter-fill hash" style="width:${(t.hash/dynMaxHash*100).toFixed(0)}%"></div></div><span class="spec-num">${t.hash} TH/s</span></div>
+        <div class="meter-row"><span class="tag">${TEXT.powerTag[state.lang]}</span><div class="meter"><div class="meter-fill power" style="width:${(t.power/dynMaxPower*100).toFixed(0)}%"></div></div><span class="spec-num">${t.power} kW</span></div>`;
     row.innerHTML = `
       <div class="icon">${t.icon}</div>
       <div class="info">
         <div class="name">${t.name[state.lang]} <span style="color:var(--text-dim); font-size:10.5px;">${TEXT.ownedLabel[state.lang]} ${state.owned[t.key]}</span></div>
-        <div class="meter-row"><span class="tag">${TEXT.hashTag[state.lang]}</span><div class="meter"><div class="meter-fill hash" style="width:${(t.hash/dynMaxHash*100).toFixed(0)}%"></div></div><span class="spec-num">${t.hash} TH/s</span></div>
-        <div class="meter-row"><span class="tag">${TEXT.powerTag[state.lang]}</span><div class="meter"><div class="meter-fill power" style="width:${(t.power/dynMaxPower*100).toFixed(0)}%"></div></div><span class="spec-num">${t.power} kW</span></div>
+        ${specHtml}
       </div>
       <button data-key="${t.key}" ${state.usd < cost ? 'disabled':''}>${fmtUsd(cost)}</button>`;
     el.appendChild(row);
@@ -1235,19 +1247,21 @@ setInterval(()=>{
   state.tick++;
 
   const active = farmActive();
-  const genHeat = active ? myPowerKw() * (state.overclock?2:1) * 6 : 0;
-  state.heat = Math.min(100, Math.max(0, state.heat + genHeat*0.4 - 2));
+  const genHeat = active ? myPowerKw() * (state.overclock?2:1) * 3 : 0;
+  const passiveCooling = 2 + (state.owned.cooler||0) * 2;
+  state.heat = Math.min(100, Math.max(0, state.heat + genHeat*0.4 - passiveCooling));
   if(state.heat >= 100){
-    const owned = tiersGear.filter(t=>state.owned[t.key]>0);
+    // 냉각용 쿨러는 손상 대상에서 제외하고, 가장 저렴한(약한) 채굴 장비부터 잃도록 함
+    const owned = tiersGear.filter(t => t.key !== 'cooler' && state.owned[t.key] > 0);
     if(owned.length){
-      const t = owned[owned.length-1];
+      const t = owned[0];
       state.owned[t.key]--;
       state.heat = 65;
       const dmgMsg = tr(
-        `🔥 과열로 ${t.name.ko} 1대가 손상되어 사라졌습니다. 발열이 100%에 도달하면 이렇게 장비가 손상돼요 — 앞으로는 80% 넘기 전에 팬 부스트를 눌러주세요.`,
-        `🔥 1x ${t.name.en} was damaged and removed from overheating. Rigs get damaged when heat hits 100% — use fan boost before it passes 80%.`
+        `🔥 과열로 ${t.name.ko} 1대가 손상되어 사라졌습니다. 쿨러 유닛을 몇 개 구매해두면 방치해도 발열이 안정적으로 유지돼요.`,
+        `🔥 1x ${t.name.en} was damaged and removed from overheating. Buy a few Cooler Units to keep heat stable even while idle.`
       );
-      log(tr(`🔥 과열로 ${t.name.ko} 1대 손상! 팬 부스트로 발열을 관리하세요.`, `🔥 Overheating damaged 1x ${t.name.en}! Manage heat with the fan boost.`), 'warn');
+      log(tr(`🔥 과열로 ${t.name.ko} 1대 손상! 쿨러를 구매하면 방치해도 안전해져요.`, `🔥 Overheating damaged 1x ${t.name.en}! Buy coolers to stay safe while idle.`), 'warn');
       showDamageAlert(dmgMsg);
     }
   }
