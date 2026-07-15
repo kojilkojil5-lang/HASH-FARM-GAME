@@ -338,7 +338,11 @@
     </div>
     <div class="trade-row custom-trade">
       <input type="number" inputmode="numeric" id="limitBuyPrice" min="0" step="1" placeholder="매수 목표가(USD)" data-i18n-placeholder="limitBuyPricePh">
-      <input type="number" inputmode="numeric" id="limitBuyUsd" min="0" step="1" placeholder="매수 금액(USD)" data-i18n-placeholder="limitBuyUsdPh">
+      <select id="limitBuyFrac">
+        <option value="0.25" data-i18n="buy25">USD 25% 매수</option>
+        <option value="0.5" data-i18n="buy50">USD 50% 매수</option>
+        <option value="1" data-i18n="buyAll">USD 전액 매수</option>
+      </select>
       <button id="limitBuyAddBtn" data-i18n="limitAddBtn">예약</button>
     </div>
     <div id="pendingOrdersList"></div>
@@ -486,6 +490,8 @@ function saveGame(){
 }
 function migrateSaveData(saved){
   if(!Array.isArray(saved.pendingOrders)) saved.pendingOrders = []; // 예약 주문 필드가 없는 옛 저장값 보정
+  // 예약 매수가 고정 USD 금액 방식(usdAmount)에서 잔고 비율(frac) 방식으로 바뀌었으므로, 옛 형식 주문은 제거
+  saved.pendingOrders = saved.pendingOrders.filter(o => !(o.type === 'buy' && typeof o.frac !== 'number'));
   if(!saved.version || saved.version < SAVE_VERSION){
     // 반감기 등 밸런스가 바뀐 뒤의 옛 저장값은 해당 수치만 새로 시작 (나머지 진행 상황은 유지)
     saved.blockReward = 3.125;
@@ -580,7 +586,6 @@ const TEXT = {
   limitOrderTitle: {ko:'📋 예약 주문 (목표가 도달 시 자동 체결)', en:'📋 Limit Orders (auto-executes at target price)'},
   limitSellPricePh: {ko:'매도 목표가(USD)', en:'Sell target price (USD)'},
   limitBuyPricePh: {ko:'매수 목표가(USD)', en:'Buy target price (USD)'},
-  limitBuyUsdPh: {ko:'매수 금액(USD)', en:'Buy amount (USD)'},
   limitAddBtn: {ko:'예약', en:'Set'},
   limitCancelBtn: {ko:'취소', en:'Cancel'},
   limitOrdersEmpty: {ko:'등록된 예약 주문이 없습니다.', en:'No pending orders.'},
@@ -1065,8 +1070,8 @@ function renderPendingOrders(){
       return `<div class="order-row sell">${label}<button data-cancel="${o.id}">${TEXT.limitCancelBtn[state.lang]}</button></div>`;
     } else {
       const label = tr(
-        `📉 ${fmtUsd(o.targetPrice)} 이하 시 ${fmtUsd(o.usdAmount)} 매수`,
-        `📉 Buy ${fmtUsd(o.usdAmount)} at or below ${fmtUsd(o.targetPrice)}`
+        `📉 ${fmtUsd(o.targetPrice)} 이하 시 USD ${(o.frac*100).toFixed(0)}% 매수`,
+        `📉 Buy USD ${(o.frac*100).toFixed(0)}% at or below ${fmtUsd(o.targetPrice)}`
       );
       return `<div class="order-row buy">${label}<button data-cancel="${o.id}">${TEXT.limitCancelBtn[state.lang]}</button></div>`;
     }
@@ -1094,16 +1099,14 @@ document.getElementById('limitSellAddBtn').onclick = () => {
 };
 document.getElementById('limitBuyAddBtn').onclick = () => {
   const priceInput = document.getElementById('limitBuyPrice');
-  const usdInput = document.getElementById('limitBuyUsd');
   const targetPrice = parseFloat(priceInput.value);
-  const usdAmount = parseFloat(usdInput.value);
-  if(!targetPrice || targetPrice <= 0 || !usdAmount || usdAmount <= 0) return;
-  state.pendingOrders.push({ id: orderIdCounter++, type:'buy', targetPrice, usdAmount });
+  const frac = parseFloat(document.getElementById('limitBuyFrac').value);
+  if(!targetPrice || targetPrice <= 0) return;
+  state.pendingOrders.push({ id: orderIdCounter++, type:'buy', targetPrice, frac });
   priceInput.value = '';
-  usdInput.value = '';
   saveGame();
   renderPendingOrders();
-  log(tr(`📋 예약 매수 등록: ${fmtUsd(targetPrice)} 이하 시 ${fmtUsd(usdAmount)} 매수`, `📋 Limit buy set: ${fmtUsd(usdAmount)} at or below ${fmtUsd(targetPrice)}`), 'news');
+  log(tr(`📋 예약 매수 등록: ${fmtUsd(targetPrice)} 이하 시 USD ${(frac*100).toFixed(0)}% 매수`, `📋 Limit buy set: USD ${(frac*100).toFixed(0)}% at or below ${fmtUsd(targetPrice)}`), 'news');
 };
 
 function checkPendingOrders(){
@@ -1117,8 +1120,11 @@ function checkPendingOrders(){
         log(tr(`✅ 예약 매도 체결: ${fmtUsd(o.targetPrice)} 도달 (${(o.frac*100).toFixed(0)}%)`, `✅ Limit sell executed at ${fmtUsd(o.targetPrice)} (${(o.frac*100).toFixed(0)}%)`), 'good');
       }
     } else if(o.type === 'buy' && state.btcPrice <= o.targetPrice){
-      buyBtcAmount(o.usdAmount);
-      log(tr(`✅ 예약 매수 체결: ${fmtUsd(o.targetPrice)} 이하 (${fmtUsd(o.usdAmount)})`, `✅ Limit buy executed at ${fmtUsd(o.targetPrice)} (${fmtUsd(o.usdAmount)})`), 'good');
+      const usdAmt = state.usd * o.frac;
+      if(usdAmt > 0){
+        buyBtcAmount(usdAmt);
+        log(tr(`✅ 예약 매수 체결: ${fmtUsd(o.targetPrice)} 이하 (USD ${(o.frac*100).toFixed(0)}%, ${fmtUsd(usdAmt)})`, `✅ Limit buy executed at ${fmtUsd(o.targetPrice)} (USD ${(o.frac*100).toFixed(0)}%, ${fmtUsd(usdAmt)})`), 'good');
+      }
     } else {
       remaining.push(o);
     }
