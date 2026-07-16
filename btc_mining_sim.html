@@ -210,9 +210,26 @@
   .log div.news{color:var(--amber);}
 
   /* ---- 리더보드 ---- */
-  #lbPanel{display:none;}
   .lb-row{display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px dotted var(--line);}
   .lb-input-row{display:flex; gap:6px; margin-bottom:10px;}
+  .lb-list-large{max-height:420px; overflow-y:auto; padding-right:4px;}
+  .lb-list-large .lb-row{font-size:13px; padding:8px 4px;}
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,14,20,.72); z-index:100;
+    display:flex; align-items:center; justify-content:center; padding:16px;
+  }
+  .modal-overlay.hidden{display:none;}
+  .modal-box{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:18px; width:100%; max-width:560px; max-height:90vh; overflow-y:auto;
+    box-shadow:0 12px 40px rgba(0,0,0,.4);
+  }
+  .modal-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;}
+  .modal-close{background:none; border:none; font-size:16px; color:var(--text-dim); cursor:pointer; padding:4px 8px;}
+  .tier-tabs{display:flex; gap:6px; flex-wrap:wrap;}
+  .tier-tabs button{flex:1; min-width:80px; font-size:11px; padding:8px 4px;}
+  .tier-tabs button.active{border-color:var(--blue); color:var(--blue); background:rgba(95,179,255,.12);}
   .icon-picker{display:flex; gap:6px; flex-wrap:wrap;}
   .icon-picker button{
     font-size:18px; padding:6px 10px; background:var(--panel-alt); border:2px solid var(--line);
@@ -422,14 +439,9 @@
       </div>
 
       <div class="panel" id="lbPanel">
-        <h2 data-i18n="lbTitle">🌐 글로벌 리더보드 (현재 등급)</h2>
-        <div class="lb-input-row">
-          <input id="nickInput" placeholder="닉네임 입력" data-i18n-placeholder="nickPlaceholder" maxlength="16">
-          <button id="lbSubmit" data-i18n="lbSubmit">순위 등록</button>
-          <button id="lbRefresh" data-i18n="lbRefresh">새로고침</button>
-        </div>
-        <div id="lbList"><small class="note" data-i18n="lbEmpty">아직 등록된 순위가 없습니다.</small></div>
-        <small class="note" data-i18n="lbNote">⚠️ 실시간 대전이 아닌 비동기 순위 공유이며, Claude에서 이 화면을 열었을 때만 작동합니다. 파일을 다운로드해 로컬로 열면 작동하지 않습니다.</small>
+        <h2 data-i18n="lbTitle">🌐 글로벌 리더보드</h2>
+        <p class="note" style="margin:0 0 10px 0;" data-i18n="lbPanelDesc">등급별 순위를 확인하고 등록할 수 있어요.</p>
+        <button id="lbOpenBtn" style="width:100%;" data-i18n="lbOpenBtn">🔍 리더보드 크게 보기</button>
       </div>
     </div>
 
@@ -444,6 +456,24 @@
         <div class="log" id="log"></div>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="lbModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 data-i18n="lbModalTitle" style="margin:0; border:none; padding:0;">🌐 글로벌 리더보드</h2>
+      <button id="lbCloseBtn" class="modal-close">✕</button>
+    </div>
+    <div class="tier-tabs" id="lbTierTabs"></div>
+    <div class="lb-input-row" style="margin-top:12px;">
+      <input id="nickInput" placeholder="닉네임 입력" data-i18n-placeholder="nickPlaceholder" maxlength="16">
+      <button id="lbSubmit" data-i18n="lbSubmit">순위 등록</button>
+      <button id="lbRefresh" data-i18n="lbRefresh">새로고침</button>
+    </div>
+    <small class="note" id="lbSubmitHint"></small>
+    <div id="lbList" class="lb-list-large"><small class="note" data-i18n="lbEmpty">아직 등록된 순위가 없습니다.</small></div>
+    <small class="note" data-i18n="lbNote">⚠️ 실시간 서버(헤더의 접속자 표시)에 연결되어 있을 때만 작동합니다. 서버가 잠들어 있으면(무료 플랜) 다시 깨어날 때까지 몇십 초 걸릴 수 있어요.</small>
   </div>
 </div>
 
@@ -648,12 +678,17 @@ const TEXT = {
   poolBtn: {ko:'🏊 풀 채굴', en:'🏊 Pool Mining'},
   soloBtn: {ko:'🎰 솔로 채굴', en:'🎰 Solo Mining'},
   strategyNote: {ko:'풀: 점유율만큼 조금씩 꾸준히 지급. 솔로: 네트워크 블록 생성 시 점유율 확률로 전량 획득 (하이리스크).', en:'Pool: steady small payouts proportional to your share. Solo: chance to win the full reward when a block is found (high risk).'},
-  lbTitle: {ko:'🌐 글로벌 리더보드 (현재 등급)', en:'🌐 Global Leaderboard (current tier)'},
+  lbTitle: {ko:'🌐 글로벌 리더보드', en:'🌐 Global Leaderboard'},
+  lbPanelDesc: {ko:'등급별 순위를 확인하고 등록할 수 있어요.', en:'View and submit rankings for each tier.'},
+  lbOpenBtn: {ko:'🔍 리더보드 크게 보기', en:'🔍 Open Leaderboard'},
+  lbModalTitle: {ko:'🌐 글로벌 리더보드', en:'🌐 Global Leaderboard'},
   nickPlaceholder: {ko:'닉네임 입력', en:'Enter nickname'},
   lbSubmit: {ko:'순위 등록', en:'Submit Score'},
   lbRefresh: {ko:'새로고침', en:'Refresh'},
   lbEmpty: {ko:'아직 등록된 순위가 없습니다.', en:'No scores registered yet.'},
   lbNote: {ko:'⚠️ 실시간 서버(헤더의 접속자 표시)에 연결되어 있을 때만 작동합니다. 서버가 잠들어 있으면(무료 플랜) 다시 깨어날 때까지 몇십 초 걸릴 수 있어요.', en:'⚠️ Only works while connected to the realtime server (see the online indicator in the header). On the free plan the server may take up to a minute to wake up.'},
+  lbViewingOtherTier: {ko:'👀 다른 등급을 구경하는 중이에요. 등록은 내 등급 탭에서만 가능해요.', en:'👀 Viewing another tier. You can only submit from your own tier tab.'},
+  lbViewingOwnTier: {ko:'✅ 내 등급입니다. 여기서 순위를 등록할 수 있어요.', en:'✅ This is your tier. You can submit your score here.'},
   shopTitle: {ko:'장비 구매', en:'Buy Equipment'},
   logTitle: {ko:'운영 로그', en:'Activity Log'},
   ownedLabel: {ko:'보유', en:'Owned'},
@@ -977,7 +1012,7 @@ function renderTier(){
     promoteBtn.disabled = true;
     promoteBtn.textContent = TEXT.maxTier[state.lang];
   }
-  document.getElementById('lbPanel').style.display = state.tierIndex >= 2 ? 'block' : 'none';
+  // 리더보드는 이제 처음 등급부터 항상 열람 가능 (등급별 탭으로 분리됨)
 }
 
 function promote(){
@@ -1001,8 +1036,10 @@ function promote(){
     `🚀 승급! ${oldName.ko} → ${tierNames[state.tierIndex].ko} (영구 배율 x${state.prestigeMultiplier.toFixed(2)})`,
     `🚀 Promoted! ${oldName.en} → ${tierNames[state.tierIndex].en} (permanent multiplier x${state.prestigeMultiplier.toFixed(2)})`
   ), 'good');
-  if(state.tierIndex === 2) log(tr('🌐 글로벌 리더보드가 해금되었습니다!', '🌐 Global leaderboard unlocked!'), 'news');
-  if(state.tierIndex >= 2 && socket && socket.connected) socket.emit('get_leaderboard', state.tierIndex);
+  // 리더보드 모달이 열려 있고 방금 승급한 등급을 보고 있다면 최신 순위로 갱신
+  if(socket && socket.connected && !document.getElementById('lbModal').classList.contains('hidden') && state.lbViewingTier === state.tierIndex){
+    socket.emit('get_leaderboard', state.tierIndex);
+  }
   renderAll();
 }
 document.getElementById('promoteBtn').onclick = () => {
@@ -1232,19 +1269,48 @@ function setPoolMode(pool){
   log(pool ? tr('🏊 풀 채굴 모드로 전환', '🏊 Switched to pool mining') : tr('🎰 솔로 채굴 모드로 전환 — 변동성 매우 큼', '🎰 Switched to solo mining — very high variance'), 'news');
 }
 
-// ---------- 리더보드 (실시간 서버 기반) ----------
+// ---------- 리더보드 (실시간 서버 기반, 등급별 탭 + 확대 모달) ----------
+state.lbViewingTier = state.tierIndex; // 지금 리더보드에서 "보고 있는" 등급 (UI 전용, 저장 안 함)
+
 function renderLeaderboard(list){
   const el = document.getElementById('lbList');
   if(!list || list.length===0){ el.innerHTML=`<small class="note">${TEXT.lbEmpty[state.lang]}</small>`; return; }
-  el.innerHTML = list.slice(0,10).map((e,i)=>
+  el.innerHTML = list.map((e,i)=>
     `<div class="lb-row"><span>${i+1}. ${e.icon || '👤'} ${escapeHtml(e.nickname)}</span><span>${fmtUsd(e.net)}</span></div>`
   ).join('');
 }
-document.getElementById('lbSubmit').onclick = () => {
-  if(!socket || !socket.connected){
-    log(tr('⚠️ 실시간 서버에 연결되어 있지 않아 리더보드를 사용할 수 없습니다.', '⚠️ Not connected to the server — leaderboard unavailable.'), 'warn');
-    return;
+
+function renderLbTabs(){
+  const el = document.getElementById('lbTierTabs');
+  el.innerHTML = tierNames.map((t,i) =>
+    `<button data-tier="${i}" class="${state.lbViewingTier===i?'active':''}">${t[state.lang]}</button>`
+  ).join('');
+  el.querySelectorAll('button[data-tier]').forEach(btn=>{
+    btn.onclick = () => switchLbTab(parseInt(btn.dataset.tier,10));
+  });
+}
+
+function updateLbSubmitHint(){
+  const hint = document.getElementById('lbSubmitHint');
+  const isOwnTier = state.lbViewingTier === state.tierIndex;
+  hint.textContent = isOwnTier ? TEXT.lbViewingOwnTier[state.lang] : TEXT.lbViewingOtherTier[state.lang];
+  document.getElementById('lbSubmit').disabled = !isOwnTier;
+}
+
+function switchLbTab(tierIndex){
+  state.lbViewingTier = tierIndex;
+  renderLbTabs();
+  updateLbSubmitHint();
+  renderLeaderboard([]); // 새 데이터 오기 전까지 비워둠
+  if(socket && socket.connected){
+    socket.emit('get_leaderboard', tierIndex);
+  } else {
+    log(tr('⚠️ 실시간 서버에 연결되어 있지 않아 리더보드를 불러올 수 없습니다.', '⚠️ Not connected to the server — cannot load leaderboard.'), 'warn');
   }
+}
+
+function submitScoreToLeaderboard(showLog){
+  if(!socket || !socket.connected) return;
   const name = (document.getElementById('nickInput').value.trim() || state.profileNickname || tr('익명채굴러','AnonMiner')).slice(0,16);
   socket.emit('submit_score', {
     tierIndex: state.tierIndex,
@@ -1252,14 +1318,42 @@ document.getElementById('lbSubmit').onclick = () => {
     nickname: name,
     icon: state.profileIconChoice || '👤',
   });
-  log(tr(`🌐 리더보드에 등록/갱신 요청 완료 (${name})`, `🌐 Leaderboard update requested (${name})`), 'good');
+  if(showLog) log(tr(`🌐 리더보드에 등록/갱신 요청 완료 (${name})`, `🌐 Leaderboard update requested (${name})`), 'good');
+}
+
+document.getElementById('lbOpenBtn').onclick = () => {
+  state.lbViewingTier = state.tierIndex;
+  renderLbTabs();
+  updateLbSubmitHint();
+  document.getElementById('lbModal').classList.remove('hidden');
+  if(socket && socket.connected){
+    socket.emit('get_leaderboard', state.lbViewingTier);
+  } else {
+    renderLeaderboard([]);
+    log(tr('⚠️ 실시간 서버에 연결되어 있지 않아 리더보드를 불러올 수 없습니다.', '⚠️ Not connected to the server — cannot load leaderboard.'), 'warn');
+  }
+};
+document.getElementById('lbCloseBtn').onclick = () => {
+  document.getElementById('lbModal').classList.add('hidden');
+};
+document.getElementById('lbModal').addEventListener('click', (e) => {
+  if(e.target.id === 'lbModal') document.getElementById('lbModal').classList.add('hidden');
+});
+
+document.getElementById('lbSubmit').onclick = () => {
+  if(!socket || !socket.connected){
+    log(tr('⚠️ 실시간 서버에 연결되어 있지 않아 리더보드를 사용할 수 없습니다.', '⚠️ Not connected to the server — leaderboard unavailable.'), 'warn');
+    return;
+  }
+  if(state.lbViewingTier !== state.tierIndex) return; // 다른 등급 탭에서는 등록 불가
+  submitScoreToLeaderboard(true);
 };
 document.getElementById('lbRefresh').onclick = () => {
   if(!socket || !socket.connected){
     log(tr('⚠️ 실시간 서버에 연결되어 있지 않아 리더보드를 새로고침할 수 없습니다.', '⚠️ Not connected to the server — cannot refresh leaderboard.'), 'warn');
     return;
   }
-  socket.emit('get_leaderboard', state.tierIndex);
+  socket.emit('get_leaderboard', state.lbViewingTier);
 };
 
 // ---------- 뉴스 이벤트 ----------
@@ -1383,6 +1477,11 @@ setInterval(()=>{
   if(state.fanCooldown > 0){
     state.fanCooldown--;
     updateFanBtn();
+  }
+
+  // 60초마다 리더보드 자동 갱신 (수동으로 안 눌러도 순위가 최신 상태로 유지되도록)
+  if(state.tick % 60 === 0){
+    submitScoreToLeaderboard(false);
   }
 
   renderAll();
@@ -1520,7 +1619,9 @@ if(SOCKET_SERVER_URL && !SOCKET_SERVER_URL.includes('your-render-app') && typeof
     socket.on('connect', () => {
       document.getElementById('onlineDot').textContent = '🟢';
       sendProfileToServer();
-      if(state.tierIndex >= 2) socket.emit('get_leaderboard', state.tierIndex);
+      if(!document.getElementById('lbModal').classList.contains('hidden')){
+        socket.emit('get_leaderboard', state.lbViewingTier);
+      }
     });
     socket.on('disconnect', setOnlineDisconnected);
     socket.on('connect_error', setOnlineDisconnected);
@@ -1538,7 +1639,7 @@ if(SOCKET_SERVER_URL && !SOCKET_SERVER_URL.includes('your-render-app') && typeof
     });
 
     socket.on('leaderboard_update', (data) => {
-      if(data && data.tierIndex === state.tierIndex) renderLeaderboard(data.list);
+      if(data && data.tierIndex === state.lbViewingTier) renderLeaderboard(data.list);
     });
 
     socket.on('chat_history', renderChatHistory);
