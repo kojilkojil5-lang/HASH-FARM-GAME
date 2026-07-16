@@ -36,6 +36,14 @@ const CHAT_HISTORY_LIMIT = 50;
 const chatHistory = [];
 const CHAT_MIN_INTERVAL_MS = 1500; // 도배 방지: 메시지 사이 최소 간격
 const CHAT_MAX_LENGTH = 200;
+// 등급별 리더보드 (tierIndex -> [{nickname, icon, net, ts}]) — 메모리 저장이라 서버 재시작 시 초기화됨
+const leaderboards = {};
+const LEADERBOARD_LIMIT = 50;
+
+function getLeaderboard(tierIndex){
+  if(!leaderboards[tierIndex]) leaderboards[tierIndex] = [];
+  return leaderboards[tierIndex];
+}
 
 function broadcastUserList() {
   const list = Array.from(users.values()).map(u => ({
@@ -107,6 +115,29 @@ io.on('connection', (socket) => {
     chatHistory.push(msg);
     if (chatHistory.length > CHAT_HISTORY_LIMIT) chatHistory.shift();
     io.emit('chat_message', msg);
+  });
+
+  // 리더보드 순위 등록/갱신
+  socket.on('submit_score', (payload) => {
+    if (!payload || typeof payload.tierIndex !== 'number' || typeof payload.net !== 'number') return;
+    const tierIndex = payload.tierIndex;
+    const name = String(payload.nickname || '익명채굴러').trim().slice(0, 16) || '익명채굴러';
+    const icon = typeof payload.icon === 'string' && payload.icon.length <= 4 ? payload.icon : '👤';
+
+    let list = getLeaderboard(tierIndex);
+    list = list.filter(e => e.nickname !== name);
+    list.push({ nickname: name, icon, net: payload.net, ts: Date.now() });
+    list.sort((a, b) => b.net - a.net);
+    list = list.slice(0, LEADERBOARD_LIMIT);
+    leaderboards[tierIndex] = list;
+
+    io.emit('leaderboard_update', { tierIndex, list });
+  });
+
+  // 리더보드 조회 (등록 없이 현재 순위만 보고 싶을 때)
+  socket.on('get_leaderboard', (tierIndex) => {
+    if (typeof tierIndex !== 'number') return;
+    socket.emit('leaderboard_update', { tierIndex, list: getLeaderboard(tierIndex) });
   });
 
   socket.on('disconnect', () => {

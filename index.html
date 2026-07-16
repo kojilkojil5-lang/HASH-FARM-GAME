@@ -653,7 +653,7 @@ const TEXT = {
   lbSubmit: {ko:'순위 등록', en:'Submit Score'},
   lbRefresh: {ko:'새로고침', en:'Refresh'},
   lbEmpty: {ko:'아직 등록된 순위가 없습니다.', en:'No scores registered yet.'},
-  lbNote: {ko:'⚠️ 실시간 대전이 아닌 비동기 순위 공유이며, Claude에서 이 화면을 열었을 때만 작동합니다. 파일을 다운로드해 로컬로 열면 작동하지 않습니다.', en:'⚠️ Not real-time — an async shared ranking. Only works when opened inside Claude, not in a downloaded local file.'},
+  lbNote: {ko:'⚠️ 실시간 서버(헤더의 접속자 표시)에 연결되어 있을 때만 작동합니다. 서버가 잠들어 있으면(무료 플랜) 다시 깨어날 때까지 몇십 초 걸릴 수 있어요.', en:'⚠️ Only works while connected to the realtime server (see the online indicator in the header). On the free plan the server may take up to a minute to wake up.'},
   shopTitle: {ko:'장비 구매', en:'Buy Equipment'},
   logTitle: {ko:'운영 로그', en:'Activity Log'},
   ownedLabel: {ko:'보유', en:'Owned'},
@@ -1002,6 +1002,7 @@ function promote(){
     `🚀 Promoted! ${oldName.en} → ${tierNames[state.tierIndex].en} (permanent multiplier x${state.prestigeMultiplier.toFixed(2)})`
   ), 'good');
   if(state.tierIndex === 2) log(tr('🌐 글로벌 리더보드가 해금되었습니다!', '🌐 Global leaderboard unlocked!'), 'news');
+  if(state.tierIndex >= 2 && socket && socket.connected) socket.emit('get_leaderboard', state.tierIndex);
   renderAll();
 }
 document.getElementById('promoteBtn').onclick = () => {
@@ -1231,40 +1232,34 @@ function setPoolMode(pool){
   log(pool ? tr('🏊 풀 채굴 모드로 전환', '🏊 Switched to pool mining') : tr('🎰 솔로 채굴 모드로 전환 — 변동성 매우 큼', '🎰 Switched to solo mining — very high variance'), 'news');
 }
 
-// ---------- 리더보드 (Claude 아티팩트 storage 사용) ----------
-function lbKey(){ return `hashfarm_lb_tier${state.tierIndex}`; }
-async function loadLeaderboard(){
-  if(!window.storage) return [];
-  try{
-    const res = await window.storage.get(lbKey(), true);
-    return res ? JSON.parse(res.value) : [];
-  }catch(e){ return []; }
-}
-function renderLeaderboard(arr){
+// ---------- 리더보드 (실시간 서버 기반) ----------
+function renderLeaderboard(list){
   const el = document.getElementById('lbList');
-  if(!arr || arr.length===0){ el.innerHTML=`<small class="note">${TEXT.lbEmpty[state.lang]}</small>`; return; }
-  el.innerHTML = arr.slice(0,10).map((e,i)=>
-    `<div class="lb-row"><span>${i+1}. ${String(e.name).replace(/[<>&]/g,'')}</span><span>${fmtUsd(e.net)}</span></div>`
+  if(!list || list.length===0){ el.innerHTML=`<small class="note">${TEXT.lbEmpty[state.lang]}</small>`; return; }
+  el.innerHTML = list.slice(0,10).map((e,i)=>
+    `<div class="lb-row"><span>${i+1}. ${e.icon || '👤'} ${escapeHtml(e.nickname)}</span><span>${fmtUsd(e.net)}</span></div>`
   ).join('');
 }
-document.getElementById('lbSubmit').onclick = async () => {
-  if(!window.storage){ log(tr('⚠️ 리더보드는 Claude 아티팩트 환경에서만 사용할 수 있습니다.', '⚠️ The leaderboard only works inside the Claude artifact environment.'), 'warn'); return; }
+document.getElementById('lbSubmit').onclick = () => {
+  if(!socket || !socket.connected){
+    log(tr('⚠️ 실시간 서버에 연결되어 있지 않아 리더보드를 사용할 수 없습니다.', '⚠️ Not connected to the server — leaderboard unavailable.'), 'warn');
+    return;
+  }
   const name = (document.getElementById('nickInput').value.trim() || state.profileNickname || tr('익명채굴러','AnonMiner')).slice(0,16);
-  const net = netWorth();
-  try{
-    let arr = await loadLeaderboard();
-    arr = arr.filter(e=>e.name !== name);
-    arr.push({name, net, ts:Date.now()});
-    arr.sort((a,b)=>b.net-a.net);
-    arr = arr.slice(0,50);
-    await window.storage.set(lbKey(), JSON.stringify(arr), true);
-    log(tr(`🌐 리더보드에 등록/갱신 완료 (${name})`, `🌐 Leaderboard updated (${name})`), 'good');
-    renderLeaderboard(arr);
-  }catch(e){ log(tr('⚠️ 리더보드 저장 실패', '⚠️ Failed to save leaderboard'), 'warn'); }
+  socket.emit('submit_score', {
+    tierIndex: state.tierIndex,
+    net: netWorth(),
+    nickname: name,
+    icon: state.profileIconChoice || '👤',
+  });
+  log(tr(`🌐 리더보드에 등록/갱신 요청 완료 (${name})`, `🌐 Leaderboard update requested (${name})`), 'good');
 };
-document.getElementById('lbRefresh').onclick = async () => {
-  const arr = await loadLeaderboard();
-  renderLeaderboard(arr);
+document.getElementById('lbRefresh').onclick = () => {
+  if(!socket || !socket.connected){
+    log(tr('⚠️ 실시간 서버에 연결되어 있지 않아 리더보드를 새로고침할 수 없습니다.', '⚠️ Not connected to the server — cannot refresh leaderboard.'), 'warn');
+    return;
+  }
+  socket.emit('get_leaderboard', state.tierIndex);
 };
 
 // ---------- 뉴스 이벤트 ----------
@@ -1525,6 +1520,7 @@ if(SOCKET_SERVER_URL && !SOCKET_SERVER_URL.includes('your-render-app') && typeof
     socket.on('connect', () => {
       document.getElementById('onlineDot').textContent = '🟢';
       sendProfileToServer();
+      if(state.tierIndex >= 2) socket.emit('get_leaderboard', state.tierIndex);
     });
     socket.on('disconnect', setOnlineDisconnected);
     socket.on('connect_error', setOnlineDisconnected);
@@ -1539,6 +1535,10 @@ if(SOCKET_SERVER_URL && !SOCKET_SERVER_URL.includes('your-render-app') && typeof
           `<div class="lb-row"><span>${u.icon || '👤'} ${escapeHtml(u.nickname)}</span></div>`
         ).join('');
       }
+    });
+
+    socket.on('leaderboard_update', (data) => {
+      if(data && data.tierIndex === state.tierIndex) renderLeaderboard(data.list);
     });
 
     socket.on('chat_history', renderChatHistory);
