@@ -230,6 +230,30 @@
   .tier-tabs{display:flex; gap:6px; flex-wrap:wrap;}
   .tier-tabs button{flex:1; min-width:80px; font-size:11px; padding:8px 4px;}
   .tier-tabs button.active{border-color:var(--blue); color:var(--blue); background:rgba(95,179,255,.12);}
+
+  .ach-row{display:flex; align-items:center; gap:10px; padding:9px 6px; border-bottom:1px dotted var(--line); font-size:12px;}
+  .ach-row.locked{opacity:.45;}
+  .ach-row .ach-icon{font-size:22px; flex-shrink:0; width:28px; text-align:center;}
+  .ach-row.unlocked .ach-icon{filter:drop-shadow(0 0 4px rgba(255,171,94,.6));}
+
+  .skin-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px;}
+  .skin-card{
+    border:2px solid var(--line); border-radius:10px; padding:10px; cursor:pointer; text-align:center;
+    background:var(--panel-alt);
+  }
+  .skin-card.active{border-color:var(--blue);}
+  .skin-card.locked{opacity:.4; cursor:not-allowed;}
+  .skin-swatch{height:36px; border-radius:6px; margin-bottom:8px; display:flex; overflow:hidden;}
+  .skin-swatch span{flex:1;}
+  .skin-card .skin-name{font-size:12px; font-weight:700;}
+  .skin-card .skin-lock{font-size:10px; color:var(--text-dim); margin-top:2px;}
+
+  .mission-row{padding:9px 6px; border-bottom:1px dotted var(--line);}
+  .mission-row .mission-top{display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;}
+  .mission-row .mission-reward{color:var(--green); font-weight:700; font-size:11px;}
+  .mission-row.claimed{opacity:.5;}
+  .mission-bar{height:8px; background:var(--panel-alt); border-radius:4px; overflow:hidden; border:1px solid var(--line);}
+  .mission-bar-fill{height:100%; background:linear-gradient(90deg,var(--blue),var(--green)); transition:width .3s;}
   .icon-picker{display:flex; gap:6px; flex-wrap:wrap;}
   .icon-picker button{
     font-size:18px; padding:6px 10px; background:var(--panel-alt); border:2px solid var(--line);
@@ -270,6 +294,10 @@
         </div>
       </div>
       <button id="langToggle">EN</button>
+      <button id="soundToggleBtn" title="효과음 켜기/끄기">🔊</button>
+      <button id="achOpenBtn" title="업적 보기" data-i18n-title="achOpenTitle">🏆</button>
+      <button id="skinOpenBtn" title="테마 변경" data-i18n-title="skinOpenTitle">🎨</button>
+      <button id="missionOpenBtn" title="일일/주간 미션" data-i18n-title="missionOpenTitle">📋</button>
       <button id="resetSaveBtn" title="진행 상황 초기화" data-i18n-title="resetSaveTitle">🗑️</button>
     </div>
   </header>
@@ -477,6 +505,48 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="achModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 data-i18n="achModalTitle" style="margin:0; border:none; padding:0;">🏆 업적</h2>
+      <button id="achCloseBtn" class="modal-close">✕</button>
+    </div>
+    <div class="note" style="margin-bottom:10px;"><span data-i18n="achProgressLabel">달성 현황</span>: <b id="achProgress">0 / 0</b></div>
+    <div id="achList" class="lb-list-large"></div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="skinModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 data-i18n="skinModalTitle" style="margin:0; border:none; padding:0;">🎨 테마 선택</h2>
+      <button id="skinCloseBtn" class="modal-close">✕</button>
+    </div>
+    <div id="skinList" class="skin-grid"></div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="missionModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 data-i18n="missionModalTitle" style="margin:0; border:none; padding:0;">📋 일일 · 주간 미션</h2>
+      <button id="missionCloseBtn" class="modal-close">✕</button>
+    </div>
+    <h3 style="font-size:12px; color:var(--text-dim); margin:6px 0;" data-i18n="dailyMissionsLabel">🗓️ 오늘의 미션</h3>
+    <div id="dailyMissionList"></div>
+    <h3 style="font-size:12px; color:var(--text-dim); margin:14px 0 6px;" data-i18n="weeklyMissionsLabel">📆 이번 주 미션</h3>
+    <div id="weeklyMissionList"></div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="dailyBonusModal">
+  <div class="modal-box" style="max-width:380px; text-align:center;">
+    <h2 data-i18n="dailyBonusTitle" style="border:none; padding:0;">📅 출석 보너스!</h2>
+    <p id="dailyBonusText" style="font-size:15px; margin:16px 0;"></p>
+    <button id="dailyBonusCloseBtn" style="width:100%;" data-i18n="dailyBonusCloseBtn">받기</button>
+  </div>
+</div>
+
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
 // ---------- 장비 데이터 (unlock: 해금 등급 인덱스) ----------
@@ -533,6 +603,18 @@ function createFreshState(lang){
     pendingOrders: [],
     profileIconChoice: '👶',
     profileNickname: '',
+    achievements: [],
+    lastLoginBonusDate: null,
+    loginStreak: 0,
+    selectedSkin: 'default',
+    soundEnabled: true,
+    dailyCycleDate: null,
+    weeklyCycleDate: null,
+    dailyCounters: { buyRig:0, sell:0, buyBtc:0, btcMined:0, ticks:0 },
+    weeklyCounters: { buyRig:0, sell:0, buyBtc:0, btcMined:0, ticks:0, promotions:0 },
+    dailyClaims: {},
+    weeklyClaims: {},
+    lifetime: { rigsBought:0, tradesMade:0, soloWins:0, limitOrdersSet:0, chatSent:0, leaderboardSubmits:0 },
   };
   tiersGear.forEach(t => s.owned[t.key] = 0);
   s.owned.usb = 1; // 시작 화면이 텅 비지 않도록 USB 채굴기 1대 무료 지급
@@ -558,6 +640,18 @@ function buildSaveObject(){
     pendingOrders: state.pendingOrders,
     profileIconChoice: state.profileIconChoice,
     profileNickname: state.profileNickname,
+    achievements: state.achievements,
+    lastLoginBonusDate: state.lastLoginBonusDate,
+    loginStreak: state.loginStreak,
+    selectedSkin: state.selectedSkin,
+    soundEnabled: state.soundEnabled,
+    dailyCycleDate: state.dailyCycleDate,
+    weeklyCycleDate: state.weeklyCycleDate,
+    dailyCounters: state.dailyCounters,
+    weeklyCounters: state.weeklyCounters,
+    dailyClaims: state.dailyClaims,
+    weeklyClaims: state.weeklyClaims,
+    lifetime: state.lifetime,
   };
 }
 function saveGame(){
@@ -568,6 +662,16 @@ function migrateSaveData(saved){
   if(!Array.isArray(saved.pendingOrders)) saved.pendingOrders = []; // 예약 주문 필드가 없는 옛 저장값 보정
   // 예약 매수가 고정 USD 금액 방식(usdAmount)에서 잔고 비율(frac) 방식으로 바뀌었으므로, 옛 형식 주문은 제거
   saved.pendingOrders = saved.pendingOrders.filter(o => !(o.type === 'buy' && typeof o.frac !== 'number'));
+  // 업적/출석/스킨/사운드/미션 필드가 없는 옛 저장값 안전 보정
+  if(!Array.isArray(saved.achievements)) saved.achievements = [];
+  if(typeof saved.selectedSkin !== 'string') saved.selectedSkin = 'default';
+  if(typeof saved.soundEnabled !== 'boolean') saved.soundEnabled = true;
+  if(typeof saved.loginStreak !== 'number') saved.loginStreak = 0;
+  if(!saved.dailyCounters) saved.dailyCounters = { buyRig:0, sell:0, buyBtc:0, btcMined:0, ticks:0 };
+  if(!saved.weeklyCounters) saved.weeklyCounters = { buyRig:0, sell:0, buyBtc:0, btcMined:0, ticks:0, promotions:0 };
+  if(!saved.dailyClaims) saved.dailyClaims = {};
+  if(!saved.weeklyClaims) saved.weeklyClaims = {};
+  if(!saved.lifetime) saved.lifetime = { rigsBought:0, tradesMade:0, soloWins:0, limitOrdersSet:0, chatSent:0, leaderboardSubmits:0 };
   if(!saved.version || saved.version < SAVE_VERSION){
     // 반감기 등 밸런스가 바뀐 뒤의 옛 저장값은 해당 수치만 새로 시작 (나머지 진행 상황은 유지)
     saved.blockReward = 3.125;
@@ -689,6 +793,17 @@ const TEXT = {
   lbNote: {ko:'⚠️ 실시간 서버(헤더의 접속자 표시)에 연결되어 있을 때만 작동합니다. 서버가 잠들어 있으면(무료 플랜) 다시 깨어날 때까지 몇십 초 걸릴 수 있어요.', en:'⚠️ Only works while connected to the realtime server (see the online indicator in the header). On the free plan the server may take up to a minute to wake up.'},
   lbViewingOtherTier: {ko:'👀 다른 등급을 구경하는 중이에요. 등록은 내 등급 탭에서만 가능해요.', en:'👀 Viewing another tier. You can only submit from your own tier tab.'},
   lbViewingOwnTier: {ko:'✅ 내 등급입니다. 여기서 순위를 등록할 수 있어요.', en:'✅ This is your tier. You can submit your score here.'},
+  achOpenTitle: {ko:'업적 보기', en:'View achievements'},
+  achModalTitle: {ko:'🏆 업적', en:'🏆 Achievements'},
+  achProgressLabel: {ko:'달성 현황', en:'Progress'},
+  dailyBonusTitle: {ko:'📅 출석 보너스!', en:'📅 Daily Bonus!'},
+  dailyBonusCloseBtn: {ko:'받기', en:'Claim'},
+  skinOpenTitle: {ko:'테마 변경', en:'Change theme'},
+  skinModalTitle: {ko:'🎨 테마 선택', en:'🎨 Choose Theme'},
+  missionOpenTitle: {ko:'일일/주간 미션', en:'Daily/weekly missions'},
+  missionModalTitle: {ko:'📋 일일 · 주간 미션', en:'📋 Daily & Weekly Missions'},
+  dailyMissionsLabel: {ko:'🗓️ 오늘의 미션', en:"🗓️ Today's Missions"},
+  weeklyMissionsLabel: {ko:'📆 이번 주 미션', en:"📆 This Week's Missions"},
   shopTitle: {ko:'장비 구매', en:'Buy Equipment'},
   logTitle: {ko:'운영 로그', en:'Activity Log'},
   ownedLabel: {ko:'보유', en:'Owned'},
@@ -868,6 +983,53 @@ function log(msg, cls){
   while(el.children.length > 60) el.removeChild(el.firstChild);
 }
 
+// ---------- 효과음 (외부 파일 없이 Web Audio로 합성) ----------
+let audioCtx = null;
+function getAudioCtx(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ return null; }
+  }
+  if(audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+  return audioCtx;
+}
+function playTone(freqs, duration, type){
+  if(!state.soundEnabled) return;
+  const ctx = getAudioCtx();
+  if(!ctx) return;
+  const list = Array.isArray(freqs) ? freqs : [freqs];
+  list.forEach((f, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = f;
+    const start = ctx.currentTime + i * 0.09;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.12, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + duration + 0.02);
+  });
+}
+const SFX = {
+  buy: () => playTone([440, 660], 0.12, 'triangle'),
+  sell: () => playTone([660, 440], 0.12, 'triangle'),
+  block: () => playTone([523, 659, 784], 0.18, 'square'),
+  achievement: () => playTone([784, 988, 1175], 0.22, 'sine'),
+  warn: () => playTone([220, 180], 0.2, 'sawtooth'),
+  click: () => playTone(330, 0.06, 'sine'),
+  levelup: () => playTone([392, 523, 659, 784], 0.25, 'square'),
+};
+document.getElementById('soundToggleBtn').onclick = () => {
+  state.soundEnabled = !state.soundEnabled;
+  updateSoundToggleBtn();
+  saveGame();
+  if(state.soundEnabled) SFX.click();
+};
+function updateSoundToggleBtn(){
+  document.getElementById('soundToggleBtn').textContent = state.soundEnabled ? '🔊' : '🔇';
+}
+
 // ---------- 긴급 뉴스 배너 ----------
 let breakingTimeout = null;
 function showBreakingNews(text){
@@ -989,6 +1151,12 @@ function buyRig(key){
   if(state.usd >= cost){
     state.usd -= cost;
     state.owned[key]++;
+    if(key !== 'cooler'){
+      state.dailyCounters.buyRig++;
+      state.weeklyCounters.buyRig++;
+    }
+    state.lifetime.rigsBought++;
+    SFX.buy();
     log(tr(`✅ ${t.name.ko} 1대 구매 (${fmtUsd(cost)})`, `✅ Bought 1x ${t.name.en} (${fmtUsd(cost)})`), 'good');
     renderAll();
   }
@@ -1032,10 +1200,14 @@ function promote(){
   state.blockReward = 3.125;
   state.networkBlocksSinceHalving = 0;
   state.wasInactiveLogged = false;
+  state.weeklyCounters.promotions = (state.weeklyCounters.promotions||0) + 1;
+  SFX.levelup();
   log(tr(
     `🚀 승급! ${oldName.ko} → ${tierNames[state.tierIndex].ko} (영구 배율 x${state.prestigeMultiplier.toFixed(2)})`,
     `🚀 Promoted! ${oldName.en} → ${tierNames[state.tierIndex].en} (permanent multiplier x${state.prestigeMultiplier.toFixed(2)})`
   ), 'good');
+  checkAchievements();
+  checkMissions();
   // 리더보드 모달이 열려 있고 방금 승급한 등급을 보고 있다면 최신 순위로 갱신
   if(socket && socket.connected && !document.getElementById('lbModal').classList.contains('hidden') && state.lbViewingTier === state.tierIndex){
     socket.emit('get_leaderboard', state.tierIndex);
@@ -1116,6 +1288,10 @@ function sellBtcAmount(amt){
   const usd = amt * state.btcPrice;
   state.btc -= amt;
   state.usd += usd;
+  state.dailyCounters.sell++;
+  state.weeklyCounters.sell++;
+  state.lifetime.tradesMade++;
+  SFX.sell();
   log(tr(
     `💰 BTC ${fmtBtc(amt)} 매도 → ${fmtUsd(usd)} (시세 ${fmtUsd(state.btcPrice)})`,
     `💰 Sold ${fmtBtc(amt)} BTC → ${fmtUsd(usd)} (price ${fmtUsd(state.btcPrice)})`
@@ -1130,6 +1306,10 @@ function buyBtcAmount(usdAmt){
   const btcBought = usdAmt / state.btcPrice;
   state.usd -= usdAmt;
   state.btc += btcBought;
+  state.dailyCounters.buyBtc++;
+  state.weeklyCounters.buyBtc++;
+  state.lifetime.tradesMade++;
+  SFX.buy();
   log(tr(
     `🛒 ${fmtUsd(usdAmt)}로 BTC ${fmtBtc(btcBought)} 매수 (시세 ${fmtUsd(state.btcPrice)})`,
     `🛒 Bought ${fmtBtc(btcBought)} BTC with ${fmtUsd(usdAmt)} (price ${fmtUsd(state.btcPrice)})`
@@ -1193,6 +1373,7 @@ document.getElementById('limitSellAddBtn').onclick = () => {
   const frac = parseFloat(document.getElementById('limitSellFrac').value);
   if(!targetPrice || targetPrice <= 0) return;
   state.pendingOrders.push({ id: orderIdCounter++, type:'sell', targetPrice, frac });
+  state.lifetime.limitOrdersSet++;
   priceInput.value = '';
   saveGame();
   renderPendingOrders();
@@ -1204,6 +1385,7 @@ document.getElementById('limitBuyAddBtn').onclick = () => {
   const frac = parseFloat(document.getElementById('limitBuyFrac').value);
   if(!targetPrice || targetPrice <= 0) return;
   state.pendingOrders.push({ id: orderIdCounter++, type:'buy', targetPrice, frac });
+  state.lifetime.limitOrdersSet++;
   priceInput.value = '';
   saveGame();
   renderPendingOrders();
@@ -1318,6 +1500,7 @@ function submitScoreToLeaderboard(showLog){
     nickname: name,
     icon: state.profileIconChoice || '👤',
   });
+  state.lifetime.leaderboardSubmits++;
   if(showLog) log(tr(`🌐 리더보드에 등록/갱신 요청 완료 (${name})`, `🌐 Leaderboard update requested (${name})`), 'good');
 }
 
@@ -1355,6 +1538,208 @@ document.getElementById('lbRefresh').onclick = () => {
   }
   socket.emit('get_leaderboard', state.lbViewingTier);
 };
+
+// ---------- 업적 시스템 ----------
+const ACHIEVEMENTS = [
+  {id:'first_purchase', icon:'🛠️', name:{ko:'첫 장비 구매', en:'First Purchase'}, desc:{ko:'채굴기를 처음으로 구매했습니다.', en:'Bought your first rig.'}, check:() => state.lifetime.rigsBought >= 1},
+  {id:'asic_owner', icon:'📦', name:{ko:'ASIC 오너', en:'ASIC Owner'}, desc:{ko:'ASIC급 장비를 보유했습니다.', en:'Owned an ASIC-tier rig.'}, check:() => (state.owned.s9||0)+(state.owned.s19||0)+(state.owned.s21||0) > 0},
+  {id:'cooled_down', icon:'❄️', name:{ko:'쿨링 마스터', en:'Cooling Master'}, desc:{ko:'쿨러 유닛을 5개 이상 보유했습니다.', en:'Own 5+ Cooler Units.'}, check:() => (state.owned.cooler||0) >= 5},
+  {id:'first_promote', icon:'🚀', name:{ko:'첫 승급', en:'First Promotion'}, desc:{ko:'처음으로 승급했습니다.', en:'Promoted for the first time.'}, check:() => state.tierIndex >= 1},
+  {id:'asia_reached', icon:'🌏', name:{ko:'아시아 진출', en:'Reached Asia'}, desc:{ko:'아시아 등급에 도달했습니다.', en:'Reached the Asia tier.'}, check:() => state.tierIndex >= 2},
+  {id:'universal_reached', icon:'🌌', name:{ko:'궁극의 채굴러', en:'Ultimate Miner'}, desc:{ko:'유니버설 등급에 도달했습니다.', en:'Reached the Universal tier.'}, check:() => state.tierIndex >= 4},
+  {id:'millionaire', icon:'💰', name:{ko:'백만장자', en:'Millionaire'}, desc:{ko:'순자산 $1,000,000을 달성했습니다.', en:'Net worth reached $1,000,000.'}, check:() => netWorth() >= 1000000},
+  {id:'first_halving', icon:'🎊', name:{ko:'반감기 목격자', en:'Halving Witness'}, desc:{ko:'반감기를 처음 경험했습니다.', en:'Experienced your first halving.'}, check:() => state.blockReward < 3.125},
+  {id:'solo_winner', icon:'🎰', name:{ko:'솔로 대박', en:'Solo Jackpot'}, desc:{ko:'솔로 채굴로 블록 보상을 획득했습니다.', en:'Won a block reward via solo mining.'}, check:() => state.lifetime.soloWins >= 1},
+  {id:'trader', icon:'📈', name:{ko:'트레이더', en:'Trader'}, desc:{ko:'매수·매도를 10회 이상 했습니다.', en:'Made 10+ trades.'}, check:() => state.lifetime.tradesMade >= 10},
+  {id:'limit_order', icon:'📋', name:{ko:'예약주문 마스터', en:'Order Master'}, desc:{ko:'예약 주문을 처음 등록했습니다.', en:'Set your first limit order.'}, check:() => state.lifetime.limitOrdersSet >= 1},
+  {id:'social', icon:'💬', name:{ko:'소셜 채굴러', en:'Social Miner'}, desc:{ko:'채팅 메시지를 처음 보냈습니다.', en:'Sent your first chat message.'}, check:() => state.lifetime.chatSent >= 1},
+  {id:'ranked', icon:'🏆', name:{ko:'랭커', en:'Ranked'}, desc:{ko:'리더보드에 순위를 등록했습니다.', en:'Submitted a leaderboard score.'}, check:() => state.lifetime.leaderboardSubmits >= 1},
+];
+
+function checkAchievements(){
+  let unlockedNew = false;
+  ACHIEVEMENTS.forEach(a => {
+    if(!state.achievements.includes(a.id) && a.check()){
+      state.achievements.push(a.id);
+      unlockedNew = true;
+      SFX.achievement();
+      log(tr(`🏆 업적 달성: ${a.name.ko} — ${a.desc.ko}`, `🏆 Achievement unlocked: ${a.name.en} — ${a.desc.en}`), 'good');
+      showDamageAlert(tr(`🏆 업적 달성! "${a.name.ko}"`, `🏆 Achievement unlocked! "${a.name.en}"`));
+    }
+  });
+  if(unlockedNew) saveGame();
+}
+
+function renderAchievements(){
+  const el = document.getElementById('achList');
+  el.innerHTML = ACHIEVEMENTS.map(a => {
+    const unlocked = state.achievements.includes(a.id);
+    return `<div class="ach-row ${unlocked?'unlocked':'locked'}">
+      <span class="ach-icon">${unlocked ? a.icon : '🔒'}</span>
+      <span class="ach-text"><b>${a.name[state.lang]}</b><br><small>${a.desc[state.lang]}</small></span>
+    </div>`;
+  }).join('');
+  document.getElementById('achProgress').textContent = `${state.achievements.length} / ${ACHIEVEMENTS.length}`;
+}
+document.getElementById('achOpenBtn').onclick = () => {
+  renderAchievements();
+  document.getElementById('achModal').classList.remove('hidden');
+};
+document.getElementById('achCloseBtn').onclick = () => {
+  document.getElementById('achModal').classList.add('hidden');
+};
+document.getElementById('achModal').addEventListener('click', (e) => {
+  if(e.target.id === 'achModal') document.getElementById('achModal').classList.add('hidden');
+});
+
+// ---------- 채굴장 테마(스킨) ----------
+const SKINS = [
+  {id:'default', name:{ko:'기본', en:'Default'}, unlock:0, vars:{'--amber':'#ffab5e','--green':'#4ee3a0','--blue':'#5fb3ff','--panel':'#242e3c','--bg-deep':'#1a212b','--bg-grad':'#212a37'}},
+  {id:'neon', name:{ko:'네온', en:'Neon'}, unlock:1, vars:{'--amber':'#ff2fd0','--green':'#39ff14','--blue':'#00e5ff','--panel':'#1a0f2e','--bg-deep':'#0a0414','--bg-grad':'#16092b'}},
+  {id:'gold', name:{ko:'골드', en:'Gold'}, unlock:2, vars:{'--amber':'#ffd700','--green':'#c9a227','--blue':'#e8c766','--panel':'#2a2313','--bg-deep':'#1a1508','--bg-grad':'#241d0d'}},
+  {id:'hacker', name:{ko:'해커', en:'Hacker'}, unlock:3, vars:{'--amber':'#00ff41','--green':'#00ff41','--blue':'#00cc33','--text':'#c8ffd4','--panel':'#03130a','--bg-deep':'#000a04','--bg-grad':'#021107'}},
+  {id:'space', name:{ko:'스페이스', en:'Space'}, unlock:4, vars:{'--amber':'#a78bfa','--green':'#34d399','--blue':'#818cf8','--panel':'#140f33','--bg-deep':'#07041a','--bg-grad':'#0f0a28'}},
+];
+
+function applySkin(skinId){
+  const skin = SKINS.find(s => s.id === skinId) || SKINS[0];
+  Object.entries(skin.vars).forEach(([k,v]) => document.documentElement.style.setProperty(k, v));
+}
+
+function renderSkinPicker(){
+  const el = document.getElementById('skinList');
+  el.innerHTML = SKINS.map(s => {
+    const unlocked = state.tierIndex >= s.unlock;
+    const active = state.selectedSkin === s.id;
+    const swatchColors = Object.values(s.vars).slice(0,4);
+    return `<div class="skin-card ${active?'active':''} ${unlocked?'':'locked'}" data-skin="${s.id}" data-unlocked="${unlocked}">
+      <div class="skin-swatch">${swatchColors.map(c=>`<span style="background:${c}"></span>`).join('')}</div>
+      <div class="skin-name">${s.name[state.lang]}</div>
+      <div class="skin-lock">${unlocked ? (active?tr('사용 중','In use'):tr('탭하여 적용','Tap to apply')) : tr(`${tierNames[s.unlock][state.lang]} 등급 필요`, `Requires ${tierNames[s.unlock][state.lang]}`)}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.skin-card').forEach(card=>{
+    card.onclick = () => {
+      if(card.dataset.unlocked !== 'true') return;
+      state.selectedSkin = card.dataset.skin;
+      applySkin(state.selectedSkin);
+      saveGame();
+      SFX.click();
+      renderSkinPicker();
+    };
+  });
+}
+document.getElementById('skinOpenBtn').onclick = () => {
+  renderSkinPicker();
+  document.getElementById('skinModal').classList.remove('hidden');
+};
+document.getElementById('skinCloseBtn').onclick = () => {
+  document.getElementById('skinModal').classList.add('hidden');
+};
+document.getElementById('skinModal').addEventListener('click', (e) => {
+  if(e.target.id === 'skinModal') document.getElementById('skinModal').classList.add('hidden');
+});
+
+// ---------- 일일 · 주간 미션 ----------
+const DAILY_MISSIONS = [
+  {id:'buy3rigs', counterKey:'buyRig', target:3, reward:200, desc:{ko:'채굴기 3대 구매하기', en:'Buy 3 rigs'}},
+  {id:'sell1', counterKey:'sell', target:1, reward:100, desc:{ko:'BTC 1회 매도하기', en:'Sell BTC once'}},
+  {id:'buy1btc', counterKey:'buyBtc', target:1, reward:100, desc:{ko:'BTC 1회 매수하기', en:'Buy BTC once'}},
+  {id:'play30min', counterKey:'ticks', target:1800, reward:150, desc:{ko:'30분 플레이하기', en:'Play for 30 minutes'}},
+];
+const WEEKLY_MISSIONS = [
+  {id:'buy10rigs', counterKey:'buyRig', target:10, reward:1000, desc:{ko:'채굴기 10대 구매하기', en:'Buy 10 rigs'}},
+  {id:'mine_btc', counterKey:'btcMined', target:0.01, reward:800, desc:{ko:'BTC 0.01개 채굴하기', en:'Mine 0.01 BTC'}, isFloat:true},
+  {id:'promote1', counterKey:'promotions', target:1, reward:1500, desc:{ko:'승급 1회 하기', en:'Promote once'}},
+  {id:'trade20', counterKey:'trades', target:20, reward:600, desc:{ko:'매수·매도 20회 하기', en:'Trade 20 times'}},
+];
+
+function getMissionProgress(counters, m){
+  if(m.counterKey === 'trades') return (counters.buyBtc||0) + (counters.sell||0);
+  return counters[m.counterKey] || 0;
+}
+function getWeekKey(d){
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+  return `${date.getUTCFullYear()}-W${weekNo}`;
+}
+function checkMissionCycles(){
+  const todayStr = new Date().toDateString();
+  if(state.dailyCycleDate !== todayStr){
+    state.dailyCycleDate = todayStr;
+    state.dailyCounters = { buyRig:0, sell:0, buyBtc:0, btcMined:0, ticks:0 };
+    state.dailyClaims = {};
+    saveGame();
+  }
+  const weekKey = getWeekKey(new Date());
+  if(state.weeklyCycleDate !== weekKey){
+    state.weeklyCycleDate = weekKey;
+    state.weeklyCounters = { buyRig:0, sell:0, buyBtc:0, btcMined:0, ticks:0, promotions:0 };
+    state.weeklyClaims = {};
+    saveGame();
+  }
+}
+function checkMissions(){
+  let changed = false;
+  DAILY_MISSIONS.forEach(m => {
+    if(state.dailyClaims[m.id]) return;
+    if(getMissionProgress(state.dailyCounters, m) >= m.target){
+      state.usd += m.reward;
+      state.dailyClaims[m.id] = true;
+      changed = true;
+      SFX.achievement();
+      log(tr(`📋 일일 미션 완료: ${m.desc.ko} (+${fmtUsd(m.reward)})`, `📋 Daily mission complete: ${m.desc.en} (+${fmtUsd(m.reward)})`), 'good');
+    }
+  });
+  WEEKLY_MISSIONS.forEach(m => {
+    if(state.weeklyClaims[m.id]) return;
+    if(getMissionProgress(state.weeklyCounters, m) >= m.target){
+      state.usd += m.reward;
+      state.weeklyClaims[m.id] = true;
+      changed = true;
+      SFX.achievement();
+      log(tr(`📋 주간 미션 완료: ${m.desc.ko} (+${fmtUsd(m.reward)})`, `📋 Weekly mission complete: ${m.desc.en} (+${fmtUsd(m.reward)})`), 'good');
+    }
+  });
+  if(changed) saveGame();
+}
+function fmtMissionProgress(m, counters){
+  const p = getMissionProgress(counters, m);
+  if(m.counterKey === 'ticks') return `${Math.min(Math.floor(p/60), Math.floor(m.target/60))} / ${Math.floor(m.target/60)}${tr('분','min')}`;
+  if(m.isFloat) return `${Math.min(p,m.target).toFixed(4)} / ${m.target}`;
+  return `${Math.min(Math.floor(p), m.target)} / ${m.target}`;
+}
+function renderMissionList(elId, missions, counters, claims){
+  const el = document.getElementById(elId);
+  el.innerHTML = missions.map(m => {
+    const p = getMissionProgress(counters, m);
+    const pct = Math.min(100, (p/m.target)*100);
+    const claimed = !!claims[m.id];
+    return `<div class="mission-row ${claimed?'claimed':''}">
+      <div class="mission-top"><span>${claimed?'✅ ':''}${m.desc[state.lang]}</span><span class="mission-reward">+${fmtUsd(m.reward)}</span></div>
+      <div class="mission-bar"><div class="mission-bar-fill" style="width:${pct}%"></div></div>
+      <small class="note" style="margin-top:2px;">${fmtMissionProgress(m, counters)}</small>
+    </div>`;
+  }).join('');
+}
+function renderMissions(){
+  renderMissionList('dailyMissionList', DAILY_MISSIONS, state.dailyCounters, state.dailyClaims);
+  renderMissionList('weeklyMissionList', WEEKLY_MISSIONS, state.weeklyCounters, state.weeklyClaims);
+}
+document.getElementById('missionOpenBtn').onclick = () => {
+  checkMissionCycles();
+  renderMissions();
+  document.getElementById('missionModal').classList.remove('hidden');
+};
+document.getElementById('missionCloseBtn').onclick = () => {
+  document.getElementById('missionModal').classList.add('hidden');
+};
+document.getElementById('missionModal').addEventListener('click', (e) => {
+  if(e.target.id === 'missionModal') document.getElementById('missionModal').classList.add('hidden');
+});
 
 // ---------- 뉴스 이벤트 ----------
 const ambientEvents = [
@@ -1403,6 +1788,8 @@ function updatePrice(){
 // ---------- 메인 루프 ----------
 setInterval(()=>{
   state.tick++;
+  state.dailyCounters.ticks++;
+  state.weeklyCounters.ticks++;
 
   const active = farmActive();
   const genHeat = active ? myPowerKw() * (state.overclock?2:1) * 3 : 0;
@@ -1415,6 +1802,7 @@ setInterval(()=>{
       const t = owned[0];
       state.owned[t.key]--;
       state.heat = 65;
+      SFX.warn();
       const dmgMsg = tr(
         `🔥 과열로 ${t.name.ko} 1대가 손상되어 사라졌습니다. 쿨러 유닛을 몇 개 구매해두면 방치해도 발열이 안정적으로 유지돼요.`,
         `🔥 1x ${t.name.en} was damaged and removed from overheating. Buy a few Cooler Units to keep heat stable even while idle.`
@@ -1442,12 +1830,19 @@ setInterval(()=>{
   const sh = share();
   const interval = state.blockIntervalTicks;
   if(state.poolMode){
-    state.btc += sh * state.blockReward / interval;
+    const gained = sh * state.blockReward / interval;
+    state.btc += gained;
+    state.dailyCounters.btcMined += gained;
+    state.weeklyCounters.btcMined += gained;
     if(state.tick % interval === 0) state.networkBlocksSinceHalving++;
   } else {
     if(state.tick % interval === 0){
       if(Math.random() < sh){
         state.btc += state.blockReward;
+        state.dailyCounters.btcMined += state.blockReward;
+        state.weeklyCounters.btcMined += state.blockReward;
+        state.lifetime.soloWins++;
+        SFX.block();
         log(tr(`🎉 솔로 채굴 성공! 블록 보상 ${state.blockReward} BTC 획득!`, `🎉 Solo mining success! Won the block reward: ${state.blockReward} BTC!`), 'good');
       }
       state.networkBlocksSinceHalving++;
@@ -1482,6 +1877,12 @@ setInterval(()=>{
   // 60초마다 리더보드 자동 갱신 (수동으로 안 눌러도 순위가 최신 상태로 유지되도록)
   if(state.tick % 60 === 0){
     submitScoreToLeaderboard(false);
+  }
+
+  if(state.tick % 5 === 0){
+    checkMissionCycles();
+    checkAchievements();
+    checkMissions();
   }
 
   renderAll();
@@ -1604,6 +2005,7 @@ function sendChatMessage(){
     return;
   }
   socket.emit('chat_message', { text });
+  state.lifetime.chatSent++;
   input.value = '';
 }
 document.getElementById('chatSendBtn').onclick = sendChatMessage;
@@ -1684,12 +2086,45 @@ function applyOfflineProgress(){
   state.lastTickTime = now;
 }
 
+// ---------- 출석 보너스 ----------
+function checkDailyBonus(){
+  const today = new Date().toDateString();
+  if(state.lastLoginBonusDate === today) return; // 오늘 이미 받음
+
+  let yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const wasConsecutive = state.lastLoginBonusDate === yesterday.toDateString();
+  state.loginStreak = wasConsecutive ? state.loginStreak + 1 : 1;
+  if(state.loginStreak > 7) state.loginStreak = ((state.loginStreak - 1) % 7) + 1; // 7일 주기로 반복
+
+  const bonus = 100 + state.loginStreak * 50;
+  state.usd += bonus;
+  state.lastLoginBonusDate = today;
+
+  document.getElementById('dailyBonusText').textContent = tr(
+    `연속 ${state.loginStreak}일째 접속! ${fmtUsd(bonus)}를 받았습니다.`,
+    `Day ${state.loginStreak} streak! You received ${fmtUsd(bonus)}.`
+  );
+  document.getElementById('dailyBonusModal').classList.remove('hidden');
+  SFX.achievement();
+  log(tr(`📅 출석 보너스: 연속 ${state.loginStreak}일째, ${fmtUsd(bonus)} 지급`, `📅 Daily bonus: day ${state.loginStreak} streak, ${fmtUsd(bonus)} granted`), 'good');
+  saveGame();
+}
+document.getElementById('dailyBonusCloseBtn').onclick = () => {
+  document.getElementById('dailyBonusModal').classList.add('hidden');
+  renderAll();
+};
+
 applyI18n();
+applySkin(state.selectedSkin);
 applyOfflineProgress();
 log(wasLoaded
   ? tr('💾 저장된 진행 상황을 불러왔습니다.', '💾 Loaded your saved progress.')
   : tr('🖥️ HASH FARM 가동 시작. 장비를 구매해 채굴을 시작하세요.', '🖥️ HASH FARM started. Buy equipment to begin mining.'),
 'good');
+checkDailyBonus();
+checkMissionCycles();
+checkAchievements();
 renderAll();
 saveGame();
 
