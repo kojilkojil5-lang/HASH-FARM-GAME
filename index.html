@@ -195,6 +195,24 @@
   .shop-btns button{font-size:11px; padding:6px 8px; white-space:nowrap;}
   .sell-rig-btn{border-color:var(--red)!important; color:var(--red)!important;}
   .sell-rig-btn:disabled{border-color:var(--line)!important; color:var(--text-dim)!important;}
+
+  .slot-reels{display:flex; gap:8px; justify-content:center; margin:10px 0;}
+  .slot-cell{
+    width:70px; height:70px; background:var(--panel-alt); border:2px solid var(--line); border-radius:10px;
+    display:flex; align-items:center; justify-content:center; font-size:34px;
+  }
+  .bac-table{display:flex; gap:12px;}
+  .bac-side{flex:1; background:var(--panel-alt); border:1px solid var(--line); border-radius:10px; padding:12px; text-align:center;}
+  .bac-label{font-size:11px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px;}
+  .bac-cards{display:flex; gap:4px; justify-content:center; min-height:52px; flex-wrap:wrap;}
+  .bac-card{
+    width:34px; height:48px; background:#fff; color:#1a212b; border-radius:5px;
+    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;
+  }
+  .bac-card.red{color:#d64545;}
+  .bac-total{font-size:20px; font-weight:700; margin-top:8px;}
+  .bac-bet-type{flex:1;}
+  .bac-bet-type.active{border-color:var(--blue); color:var(--blue); background:rgba(95,179,255,.12);}
   .meter-row{display:flex; align-items:center; gap:4px; margin-bottom:2px;}
   .meter-row .tag{font-size:9.5px; color:var(--text-dim); width:26px;}
   .meter-row .spec-num{font-size:9.5px; color:var(--text-dim); width:60px; text-align:right; flex-shrink:0;}
@@ -310,6 +328,7 @@
       <button id="skinOpenBtn" title="테마 변경" data-i18n-title="skinOpenTitle">🎨</button>
       <button id="missionOpenBtn" title="일일/주간 미션" data-i18n-title="missionOpenTitle">📋</button>
       <button id="loanOpenBtn" title="대출" data-i18n-title="loanOpenTitle">🏦</button>
+      <button id="casinoOpenBtn" title="카지노" data-i18n-title="casinoOpenTitle">🎰</button>
       <button id="resetSaveBtn" title="진행 상황 초기화" data-i18n-title="resetSaveTitle">🗑️</button>
     </div>
   </header>
@@ -590,6 +609,81 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="casinoModal">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-header">
+      <h2 data-i18n="casinoModalTitle" style="margin:0; border:none; padding:0;">🎰 카지노</h2>
+      <button id="casinoCloseBtn" class="modal-close">✕</button>
+    </div>
+
+    <div class="stat-bar" style="grid-template-columns:repeat(2,1fr); margin-bottom:10px;">
+      <div class="stat"><div class="label" data-i18n="chipBalanceLabel">🪙 보유 칩</div><div class="value" id="chipBalanceVal">0</div></div>
+      <div class="stat"><div class="label" data-i18n="usdBalanceLabel">💵 USD 잔고</div><div class="value" id="casinoUsdVal">$0</div></div>
+    </div>
+    <div class="trade-row custom-trade">
+      <input type="number" inputmode="numeric" id="chipBuyInput" min="0" step="1" placeholder="USD → 칩 (1:1)" data-i18n-placeholder="chipBuyPh">
+      <button id="chipBuyBtn" data-i18n="chipBuyBtn">칩 구매</button>
+    </div>
+    <div class="trade-row custom-trade">
+      <input type="number" inputmode="numeric" id="chipSellInput" min="0" step="1" placeholder="칩 → USD (1:1)" data-i18n-placeholder="chipSellPh">
+      <button id="chipSellBtn" data-i18n="chipSellBtn">칩 환전</button>
+    </div>
+    <small class="note" data-i18n="chipNote">⚠️ 카지노 칩은 USD와 별도로 관리돼요. 여기서 잃어도 채굴/전기료용 USD에는 영향이 없습니다.</small>
+
+    <div class="tier-tabs" style="margin-top:14px;">
+      <button id="casinoTabSlot" class="active" data-i18n="slotTabBtn">🎰 슬롯머신</button>
+      <button id="casinoTabBaccarat" data-i18n="baccaratTabBtn">🃏 바카라</button>
+    </div>
+
+    <div id="slotGamePanel">
+      <div class="slot-reels" id="slotReels">
+        <div class="slot-cell">🍒</div><div class="slot-cell">🍒</div><div class="slot-cell">🍒</div>
+      </div>
+      <div class="note" style="text-align:center; margin:8px 0;" id="slotResultText"></div>
+      <div class="trade-row">
+        <button data-bet-frac="0.1">10%</button>
+        <button data-bet-frac="0.25">25%</button>
+        <button data-bet-frac="0.5">50%</button>
+      </div>
+      <div class="trade-row custom-trade">
+        <input type="number" inputmode="numeric" id="slotBetInput" min="0" step="1" placeholder="베팅 칩 수" data-i18n-placeholder="betChipsPh">
+        <button id="slotSpinBtn" data-i18n="spinBtn">🎰 스핀</button>
+      </div>
+      <small class="note" data-i18n="slotPayoutNote">3개 같으면 배당: 🍒x2 🍋x3 🔔x5 ⭐x10 💎x20 7️⃣x50</small>
+    </div>
+
+    <div id="baccaratGamePanel" style="display:none;">
+      <div class="bac-table">
+        <div class="bac-side">
+          <div class="bac-label" data-i18n="playerLabel">플레이어</div>
+          <div class="bac-cards" id="bacPlayerCards"></div>
+          <div class="bac-total" id="bacPlayerTotal">-</div>
+        </div>
+        <div class="bac-side">
+          <div class="bac-label" data-i18n="bankerLabel">뱅커</div>
+          <div class="bac-cards" id="bacBankerCards"></div>
+          <div class="bac-total" id="bacBankerTotal">-</div>
+        </div>
+      </div>
+      <div class="note" style="text-align:center; margin:8px 0;" id="bacResultText"></div>
+      <div class="tier-tabs">
+        <button data-bet-type="player" class="bac-bet-type active" data-i18n="betPlayerBtn">플레이어 (1:1)</button>
+        <button data-bet-type="banker" class="bac-bet-type" data-i18n="betBankerBtn">뱅커 (1:1)</button>
+        <button data-bet-type="tie" class="bac-bet-type" data-i18n="betTieBtn">타이 (8:1)</button>
+      </div>
+      <div class="trade-row" style="margin-top:8px;">
+        <button data-bac-bet-frac="0.1">10%</button>
+        <button data-bac-bet-frac="0.25">25%</button>
+        <button data-bac-bet-frac="0.5">50%</button>
+      </div>
+      <div class="trade-row custom-trade">
+        <input type="number" inputmode="numeric" id="bacBetInput" min="0" step="1" placeholder="베팅 칩 수" data-i18n-placeholder="betChipsPh">
+        <button id="bacDealBtn" data-i18n="dealBtn">🃏 베팅 · 딜</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="dailyBonusModal">
   <div class="modal-box" style="max-width:380px; text-align:center;">
     <h2 data-i18n="dailyBonusTitle" style="border:none; padding:0;">📅 출석 보너스!</h2>
@@ -668,6 +762,7 @@ function createFreshState(lang){
     lifetime: { rigsBought:0, tradesMade:0, soloWins:0, limitOrdersSet:0, chatSent:0, leaderboardSubmits:0 },
     rigOff: {},
     loanPrincipal: 0,
+    casinoChips: 0,
   };
   tiersGear.forEach(t => s.owned[t.key] = 0);
   s.owned.usb = 1; // 시작 화면이 텅 비지 않도록 USB 채굴기 1대 무료 지급
@@ -707,6 +802,7 @@ function buildSaveObject(){
     lifetime: state.lifetime,
     rigOff: state.rigOff,
     loanPrincipal: state.loanPrincipal,
+    casinoChips: state.casinoChips,
   };
 }
 function saveGame(){
@@ -729,6 +825,7 @@ function migrateSaveData(saved){
   if(!saved.lifetime) saved.lifetime = { rigsBought:0, tradesMade:0, soloWins:0, limitOrdersSet:0, chatSent:0, leaderboardSubmits:0 };
   if(!saved.rigOff) saved.rigOff = {};
   if(typeof saved.loanPrincipal !== 'number') saved.loanPrincipal = 0;
+  if(typeof saved.casinoChips !== 'number') saved.casinoChips = 0;
   if(!saved.version || saved.version < SAVE_VERSION){
     // 반감기 등 밸런스가 바뀐 뒤의 옛 저장값은 해당 수치만 새로 시작 (나머지 진행 상황은 유지)
     saved.blockReward = 3.125;
@@ -882,6 +979,26 @@ const TEXT = {
   loanRepayBtn: {ko:'상환', en:'Repay'},
   loanNote: {ko:'⚠️ 이자는 없지만 상환할 때 원금의 10% 수수료가 붙어요. 대출이 남아있으면 승급할 수 없습니다.', en:'⚠️ No interest, but a 10% fee applies when repaying. You cannot promote while a loan is outstanding.'},
   loanBlockedHint: {ko:'🏦 대출을 모두 상환해야 승급할 수 있습니다.', en:'🏦 You must fully repay your loan before promoting.'},
+  casinoOpenTitle: {ko:'카지노', en:'Casino'},
+  casinoModalTitle: {ko:'🎰 카지노', en:'🎰 Casino'},
+  chipBalanceLabel: {ko:'🪙 보유 칩', en:'🪙 Chips'},
+  usdBalanceLabel: {ko:'💵 USD 잔고', en:'💵 USD Balance'},
+  chipBuyPh: {ko:'USD → 칩 (1:1)', en:'USD → Chips (1:1)'},
+  chipBuyBtn: {ko:'칩 구매', en:'Buy Chips'},
+  chipSellPh: {ko:'칩 → USD (1:1)', en:'Chips → USD (1:1)'},
+  chipSellBtn: {ko:'칩 환전', en:'Cash Out'},
+  chipNote: {ko:'⚠️ 카지노 칩은 USD와 별도로 관리돼요. 여기서 잃어도 채굴/전기료용 USD에는 영향이 없습니다.', en:"⚠️ Casino chips are separate from your USD. Losses here don't affect your mining/electricity funds."},
+  slotTabBtn: {ko:'🎰 슬롯머신', en:'🎰 Slots'},
+  baccaratTabBtn: {ko:'🃏 바카라', en:'🃏 Baccarat'},
+  betChipsPh: {ko:'베팅 칩 수', en:'Chips to bet'},
+  spinBtn: {ko:'🎰 스핀', en:'🎰 Spin'},
+  slotPayoutNote: {ko:'3개 같으면 배당: 🍒x2 🍋x3 🔔x5 ⭐x10 💎x20 7️⃣x50', en:'3 of a kind pays: 🍒x2 🍋x3 🔔x5 ⭐x10 💎x20 7️⃣x50'},
+  playerLabel: {ko:'플레이어', en:'Player'},
+  bankerLabel: {ko:'뱅커', en:'Banker'},
+  betPlayerBtn: {ko:'플레이어 (1:1)', en:'Player (1:1)'},
+  betBankerBtn: {ko:'뱅커 (1:1)', en:'Banker (1:1)'},
+  betTieBtn: {ko:'타이 (8:1)', en:'Tie (8:1)'},
+  dealBtn: {ko:'🃏 베팅 · 딜', en:'🃏 Bet & Deal'},
   shopTitle: {ko:'장비 구매', en:'Buy Equipment'},
   logTitle: {ko:'운영 로그', en:'Activity Log'},
   ownedLabel: {ko:'보유', en:'Owned'},
@@ -1950,6 +2067,217 @@ document.getElementById('loanRepayBtn').onclick = () => {
   repayLoan(parseFloat(input.value));
   input.value = '';
   renderLoanModal();
+};
+
+// ---------- 카지노 (칩 환전 + 탭 전환) ----------
+function renderCasinoBalances(){
+  document.getElementById('chipBalanceVal').textContent = Math.floor(state.casinoChips).toLocaleString('en-US');
+  document.getElementById('casinoUsdVal').textContent = fmtUsd(state.usd);
+}
+document.getElementById('casinoOpenBtn').onclick = () => {
+  renderCasinoBalances();
+  document.getElementById('casinoModal').classList.remove('hidden');
+};
+document.getElementById('casinoCloseBtn').onclick = () => {
+  document.getElementById('casinoModal').classList.add('hidden');
+};
+document.getElementById('casinoModal').addEventListener('click', (e) => {
+  if(e.target.id === 'casinoModal') document.getElementById('casinoModal').classList.add('hidden');
+});
+document.getElementById('chipBuyBtn').onclick = () => {
+  const input = document.getElementById('chipBuyInput');
+  let amt = Math.min(Math.max(0, parseFloat(input.value) || 0), state.usd);
+  if(amt <= 0) return;
+  state.usd -= amt;
+  state.casinoChips += amt;
+  input.value = '';
+  SFX.buy();
+  log(tr(`🪙 USD ${fmtUsd(amt)} → 칩 ${Math.floor(amt)}개로 환전`, `🪙 Exchanged ${fmtUsd(amt)} → ${Math.floor(amt)} chips`), 'news');
+  renderCasinoBalances();
+  saveGame();
+};
+document.getElementById('chipSellBtn').onclick = () => {
+  const input = document.getElementById('chipSellInput');
+  let amt = Math.min(Math.max(0, parseFloat(input.value) || 0), state.casinoChips);
+  if(amt <= 0) return;
+  state.casinoChips -= amt;
+  state.usd += amt;
+  input.value = '';
+  SFX.sell();
+  log(tr(`💵 칩 ${Math.floor(amt)}개 → USD ${fmtUsd(amt)}로 환전`, `💵 Exchanged ${Math.floor(amt)} chips → ${fmtUsd(amt)}`), 'good');
+  renderCasinoBalances();
+  saveGame();
+};
+document.getElementById('casinoTabSlot').onclick = () => {
+  document.getElementById('casinoTabSlot').classList.add('active');
+  document.getElementById('casinoTabBaccarat').classList.remove('active');
+  document.getElementById('slotGamePanel').style.display = 'block';
+  document.getElementById('baccaratGamePanel').style.display = 'none';
+};
+document.getElementById('casinoTabBaccarat').onclick = () => {
+  document.getElementById('casinoTabBaccarat').classList.add('active');
+  document.getElementById('casinoTabSlot').classList.remove('active');
+  document.getElementById('baccaratGamePanel').style.display = 'block';
+  document.getElementById('slotGamePanel').style.display = 'none';
+};
+
+// ---------- 슬롯머신 ----------
+const SLOT_SYMBOLS = [
+  {sym:'🍒', weight:30, payout:2},
+  {sym:'🍋', weight:25, payout:3},
+  {sym:'🔔', weight:20, payout:5},
+  {sym:'⭐', weight:15, payout:10},
+  {sym:'💎', weight:7, payout:20},
+  {sym:'7️⃣', weight:3, payout:50},
+];
+const SLOT_POOL = [];
+SLOT_SYMBOLS.forEach(s => { for(let i=0;i<s.weight;i++) SLOT_POOL.push(s); });
+function randomSlotSymbol(){ return SLOT_POOL[Math.floor(Math.random()*SLOT_POOL.length)]; }
+
+document.querySelectorAll('#slotGamePanel button[data-bet-frac]').forEach(btn=>{
+  btn.onclick = () => {
+    document.getElementById('slotBetInput').value = Math.floor(state.casinoChips * parseFloat(btn.dataset.betFrac));
+  };
+});
+document.getElementById('slotSpinBtn').onclick = () => {
+  const input = document.getElementById('slotBetInput');
+  const bet = Math.floor(Math.min(Math.max(0, parseFloat(input.value) || 0), state.casinoChips));
+  if(bet <= 0) return;
+  document.getElementById('slotSpinBtn').disabled = true;
+
+  const finalReels = [randomSlotSymbol(), randomSlotSymbol(), randomSlotSymbol()];
+  const cells = document.querySelectorAll('#slotReels .slot-cell');
+  let spins = 0;
+  const spinTimer = setInterval(() => {
+    cells.forEach(c => c.textContent = randomSlotSymbol().sym);
+    spins++;
+    if(spins > 8){
+      clearInterval(spinTimer);
+      cells.forEach((c,i) => c.textContent = finalReels[i].sym);
+      resolveSlot(bet, finalReels);
+    }
+  }, 80);
+};
+function resolveSlot(bet, reels){
+  state.casinoChips -= bet;
+  const allSame = reels[0].sym === reels[1].sym && reels[1].sym === reels[2].sym;
+  let winChips = 0;
+  if(allSame){
+    winChips = bet * reels[0].payout;
+    state.casinoChips += winChips;
+  }
+  const resultEl = document.getElementById('slotResultText');
+  if(winChips > 0){
+    resultEl.textContent = tr(`🎉 ${reels[0].sym}${reels[0].sym}${reels[0].sym} 일치! +${winChips}칩`, `🎉 Match! +${winChips} chips`);
+    resultEl.style.color = 'var(--green)';
+    SFX.block();
+    log(tr(`🎰 슬롯 당첨! ${bet}칩 베팅 → +${winChips}칩`, `🎰 Slot win! Bet ${bet} → +${winChips} chips`), 'good');
+  } else {
+    resultEl.textContent = tr(`😢 꽝 — -${bet}칩`, `😢 No match — -${bet} chips`);
+    resultEl.style.color = 'var(--red)';
+    SFX.warn();
+    log(tr(`🎰 슬롯 꽝. -${bet}칩`, `🎰 Slot loss. -${bet} chips`), 'warn');
+  }
+  document.getElementById('slotSpinBtn').disabled = false;
+  renderCasinoBalances();
+  saveGame();
+}
+
+// ---------- 바카라 ----------
+let bacBetType = 'player';
+document.querySelectorAll('.bac-bet-type').forEach(btn=>{
+  btn.onclick = () => {
+    bacBetType = btn.dataset.betType;
+    document.querySelectorAll('.bac-bet-type').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+document.querySelectorAll('#baccaratGamePanel button[data-bac-bet-frac]').forEach(btn=>{
+  btn.onclick = () => {
+    document.getElementById('bacBetInput').value = Math.floor(state.casinoChips * parseFloat(btn.dataset.bacBetFrac));
+  };
+});
+function drawCard(){
+  const rank = 1 + Math.floor(Math.random()*13);
+  const suits = ['♠','♥','♦','♣'];
+  const suit = suits[Math.floor(Math.random()*4)];
+  const value = rank >= 10 ? 0 : rank;
+  const label = rank===1?'A' : rank===11?'J' : rank===12?'Q' : rank===13?'K' : String(rank);
+  return { rank, suit, value, label, red: (suit==='♥'||suit==='♦') };
+}
+function cardsTotal(cards){ return cards.reduce((s,c)=>s+c.value,0) % 10; }
+function renderBacCards(elId, cards){
+  document.getElementById(elId).innerHTML = cards.map(c =>
+    `<div class="bac-card ${c.red?'red':''}">${c.label}${c.suit}</div>`
+  ).join('');
+}
+document.getElementById('bacDealBtn').onclick = () => {
+  const input = document.getElementById('bacBetInput');
+  const bet = Math.floor(Math.min(Math.max(0, parseFloat(input.value) || 0), state.casinoChips));
+  if(bet <= 0) return;
+
+  const player = [drawCard(), drawCard()];
+  const banker = [drawCard(), drawCard()];
+  let pTotal = cardsTotal(player);
+  let bTotal = cardsTotal(banker);
+  let playerThird = null;
+
+  if(pTotal < 8 && bTotal < 8){ // 내추럴 없을 때만 추가 드로우
+    if(pTotal <= 5){
+      playerThird = drawCard();
+      player.push(playerThird);
+      pTotal = cardsTotal(player);
+    }
+    if(playerThird === null){
+      if(bTotal <= 5){ banker.push(drawCard()); bTotal = cardsTotal(banker); }
+    } else {
+      const pt = playerThird.value;
+      let bankerDraws = false;
+      if(bTotal <= 2) bankerDraws = true;
+      else if(bTotal === 3 && pt !== 8) bankerDraws = true;
+      else if(bTotal === 4 && [2,3,4,5,6,7].includes(pt)) bankerDraws = true;
+      else if(bTotal === 5 && [4,5,6,7].includes(pt)) bankerDraws = true;
+      else if(bTotal === 6 && [6,7].includes(pt)) bankerDraws = true;
+      if(bankerDraws){ banker.push(drawCard()); bTotal = cardsTotal(banker); }
+    }
+  }
+
+  renderBacCards('bacPlayerCards', player);
+  renderBacCards('bacBankerCards', banker);
+  document.getElementById('bacPlayerTotal').textContent = pTotal;
+  document.getElementById('bacBankerTotal').textContent = bTotal;
+
+  const result = pTotal > bTotal ? 'player' : bTotal > pTotal ? 'banker' : 'tie';
+  let netChange;
+  const resultEl = document.getElementById('bacResultText');
+  if(bacBetType === 'tie'){
+    netChange = result === 'tie' ? bet*8 : -bet;
+  } else if(bacBetType === result){
+    netChange = bet; // 1:1 승리 (수수료 없음)
+  } else if(result === 'tie'){
+    netChange = 0; // 플레이어/뱅커 베팅인데 타이 나오면 베팅 반환(푸시)
+  } else {
+    netChange = -bet;
+  }
+  state.casinoChips += netChange;
+
+  const resultLabel = {player: TEXT.playerLabel[state.lang], banker: TEXT.bankerLabel[state.lang], tie: tr('타이','Tie')}[result];
+  if(netChange > 0){
+    resultEl.textContent = tr(`🎉 ${resultLabel} 승! +${netChange}칩`, `🎉 ${resultLabel} wins! +${netChange} chips`);
+    resultEl.style.color = 'var(--green)';
+    SFX.block();
+  } else if(netChange === 0){
+    resultEl.textContent = tr(`↩️ 타이 — 베팅 반환 (${resultLabel} 아님)`, `↩️ Tie — bet pushed (not betting tie)`);
+    resultEl.style.color = 'var(--text-dim)';
+  } else {
+    resultEl.textContent = tr(`😢 ${resultLabel} 승 — -${bet}칩`, `😢 ${resultLabel} wins — -${bet} chips`);
+    resultEl.style.color = 'var(--red)';
+    SFX.warn();
+  }
+  log(tr(`🃏 바카라: ${resultLabel} 승 (P${pTotal}:B${bTotal}), 베팅 ${bet}칩 → ${netChange>=0?'+':''}${netChange}칩`, `🃏 Baccarat: ${resultLabel} wins (P${pTotal}:B${bTotal}), bet ${bet} → ${netChange>=0?'+':''}${netChange} chips`), netChange>0?'good':netChange<0?'warn':'news');
+
+  renderCasinoBalances();
+  saveGame();
 };
 
 // ---------- 뉴스 이벤트 ----------
