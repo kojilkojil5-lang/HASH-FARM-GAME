@@ -6,58 +6,83 @@
 <title>HASH FARM — 비트코인 채굴 시뮬레이터</title>
 <style>
   :root{
-    --bg-deep:#1a212b;
-    --bg-grad:#212a37;
-    --panel:#242e3c;
-    --panel-alt:#2c3747;
-    --line:#3a4658;
-    --amber:#ffab5e;
+    --bg-deep:#0d1219;
+    --bg-grad:#141c26;
+    --panel:rgba(28,38,51,.72);
+    --panel-solid:#1c2633;
+    --panel-alt:rgba(40,53,70,.6);
+    --line:rgba(255,255,255,.08);
+    --line-strong:rgba(255,255,255,.14);
+    --amber:#ffb066;
     --amber-dim:#8a6a44;
-    --green:#4ee3a0;
-    --red:#ff6b6b;
-    --blue:#5fb3ff;
-    --text:#eef2f6;
-    --text-dim:#8e98a8;
-    --mono: 'SFMono-Regular', 'Consolas', 'Menlo', monospace;
+    --green:#3ddc97;
+    --red:#ff6b7a;
+    --blue:#61b3ff;
+    --text:#e9eef5;
+    --text-dim:#8593a6;
+    --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', 'Noto Sans KR', system-ui, sans-serif;
+    --radius: 14px;
+    --shadow: 0 4px 24px rgba(0,0,0,.28);
   }
   *{box-sizing:border-box;}
   body{
     margin:0; color:var(--text);
-    background:linear-gradient(165deg, var(--bg-grad), var(--bg-deep));
-    font-family:var(--mono); font-size:14px; line-height:1.5;
-    padding:16px; min-height:100vh;
+    background:
+      radial-gradient(ellipse 80% 60% at 15% -10%, rgba(97,179,255,.10), transparent 60%),
+      radial-gradient(ellipse 70% 50% at 95% 5%, rgba(255,176,102,.08), transparent 55%),
+      linear-gradient(170deg, var(--bg-grad), var(--bg-deep) 60%);
+    background-attachment: fixed;
+    font-family:var(--sans); font-size:14px; line-height:1.55;
+    padding:18px; min-height:100vh;
+    -webkit-font-smoothing:antialiased;
   }
   .wrap{max-width:1180px;margin:0 auto;}
   header{
-    display:flex; justify-content:space-between; align-items:baseline;
-    border-bottom:2px solid var(--line); padding-bottom:10px; margin-bottom:12px;
-    flex-wrap:wrap; gap:8px;
+    display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:16px;
+    flex-wrap:wrap; gap:10px;
   }
-  h1{font-size:19px; letter-spacing:2px; margin:0; color:var(--amber); font-weight:700;}
-  h1 span{color:var(--text-dim); font-weight:400; font-size:11px; margin-left:8px;}
+  h1{
+    font-size:20px; letter-spacing:-0.3px; margin:0; font-weight:800;
+    background:linear-gradient(100deg, var(--amber), #ffd9a8);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  h1 span{
+    display:block; color:var(--text-dim); font-weight:400; font-size:11px;
+    margin-left:0; margin-top:3px; letter-spacing:0; -webkit-text-fill-color:var(--text-dim);
+  }
 
-  .stat-bar{display:grid; grid-template-columns:repeat(auto-fit,minmax(115px,1fr)); gap:10px; margin-bottom:14px;}
-  .stat{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px; cursor:help;}
-  .stat .label{color:var(--text-dim); font-size:10.5px; text-transform:uppercase; letter-spacing:1px;}
-  .stat .value{font-size:16px; font-weight:700; margin-top:2px;}
+  .stat-bar{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:16px;}
+  .stat{
+    background:var(--panel); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; cursor:help;
+    transition:border-color .2s, transform .2s;
+  }
+  .stat:hover{border-color:var(--line-strong); transform:translateY(-1px);}
+  .stat .label{color:var(--text-dim); font-size:10.5px; font-weight:600; letter-spacing:.4px;}
+  .stat .value{font-family:var(--mono); font-size:17px; font-weight:700; margin-top:3px; letter-spacing:-0.5px;}
   .value.usd{color:var(--green);}
   .value.btc{color:var(--amber);}
 
   /* ---- 프로필(자산 등급) ---- */
   .profile-card{
     display:flex; align-items:center; gap:10px; background:var(--panel-alt);
-    border:1px solid var(--line); border-radius:20px; padding:6px 14px;
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border:1px solid var(--line); border-radius:999px; padding:7px 15px;
+    transition:border-color .2s;
   }
+  .profile-card:hover{border-color:var(--line-strong);}
   .profile-card .p-icon{font-size:20px;}
-  .profile-card .p-label{font-size:9.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;}
+  .profile-card .p-label{font-size:9.5px; color:var(--text-dim); font-weight:600; letter-spacing:.4px;}
   .profile-card .p-title{font-size:13px; font-weight:700; color:var(--blue);}
-  #langToggle{border-radius:20px; padding:6px 14px; font-weight:700;}
+  #langToggle{border-radius:999px; padding:7px 14px; font-weight:700;}
 
   /* ---- 초보자 가이드 ---- */
-  .guide-panel{background:rgba(95,179,255,.08); border:1px solid rgba(95,179,255,.25);}
-  .guide-panel h2{color:var(--blue); border-bottom-color:rgba(95,179,255,.25);}
-  .guide-list{list-style:none; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px; font-size:12px;}
-  .guide-list li{display:flex; gap:8px; align-items:flex-start; line-height:1.4;}
+  .guide-panel{background:rgba(97,179,255,.07); border:1px solid rgba(97,179,255,.18);}
+  .guide-panel h2{color:var(--blue); border-bottom-color:rgba(97,179,255,.18);}
+  .guide-list{list-style:none; display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; font-size:12.5px; padding:0; margin:0;}
+  .guide-list li{display:flex; gap:9px; align-items:flex-start; line-height:1.5;}
   .guide-list b{
     background:var(--blue); color:var(--bg-deep); border-radius:50%; width:16px; height:16px;
     display:inline-flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0; margin-top:2px;
@@ -77,65 +102,81 @@
     .guide-list{grid-template-columns:1fr;}
   }
 
-  .panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px;
-    box-shadow:0 2px 10px rgba(0,0,0,.15);}
-  .panel h2{font-size:12.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim);
-    margin:0 0 10px 0; border-bottom:1px solid var(--line); padding-bottom:8px;}
+  .panel{
+    background:var(--panel); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:14px;
+    box-shadow:var(--shadow);
+  }
+  .panel h2{
+    font-size:11px; letter-spacing:.8px; text-transform:uppercase; color:var(--text-dim);
+    margin:0 0 12px 0; padding-bottom:10px; font-weight:700;
+    border-bottom:1px solid var(--line);
+  }
 
   /* ---- 등급 패널 ---- */
-  .tier-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
-  .tier-name{font-size:16px; font-weight:700; color:var(--blue);}
-  .tier-mult{font-size:11.5px; color:var(--text-dim);}
-  .progress-label{font-size:11px; color:var(--text-dim); margin-bottom:4px;}
-  .progress-bar{height:10px; background:var(--panel-alt); border-radius:6px; overflow:hidden; border:1px solid var(--line);}
-  .progress-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--blue),var(--green)); transition:width .3s;}
-  #promoteBtn{width:100%; margin-top:10px; padding:9px; font-weight:700;}
+  .tier-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .tier-name{font-size:17px; font-weight:800; color:var(--blue); letter-spacing:-0.3px;}
+  .tier-mult{font-family:var(--mono); font-size:11.5px; color:var(--text-dim);}
+  .progress-label{font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:6px;}
+  .progress-bar{height:8px; background:rgba(0,0,0,.3); border-radius:999px; overflow:hidden; border:1px solid var(--line);}
+  .progress-fill{
+    height:100%; width:0%; border-radius:999px;
+    background:linear-gradient(90deg,var(--blue),var(--green));
+    box-shadow:0 0 12px rgba(61,220,151,.4); transition:width .4s ease;
+  }
+  #promoteBtn{width:100%; margin-top:12px; padding:11px; font-weight:700; border-radius:10px;}
 
   /* ---- 가격 패널 ---- */
   .price-panel{position:relative;}
   .breaking-news{
-    margin:10px 0 0 0;
-    background:linear-gradient(90deg, rgba(255,107,107,.20), rgba(255,107,107,.06));
-    border:1px solid var(--red); border-radius:8px; padding:8px 12px;
-    font-size:11.5px; display:flex; gap:8px; align-items:center;
+    margin:12px 0 0 0;
+    background:linear-gradient(95deg, rgba(255,107,122,.16), rgba(255,107,122,.04));
+    border:1px solid rgba(255,107,122,.35); border-radius:10px; padding:10px 13px;
+    font-size:11.5px; display:flex; gap:9px; align-items:center;
     opacity:0; transform:translateY(-6px); transition:opacity .35s, transform .35s;
   }
   .breaking-news.show{opacity:1; transform:translateY(0);}
   .breaking-news.hidden{display:none;}
-  .bn-tag{background:var(--red); color:#1a212b; font-weight:700; padding:2px 6px; border-radius:4px; font-size:10px; flex-shrink:0;}
+  .bn-tag{background:var(--red); color:#0d1219; font-weight:800; padding:3px 7px; border-radius:5px; font-size:9.5px; flex-shrink:0; letter-spacing:.3px;}
 
-  .price-top{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:6px; flex-wrap:wrap; gap:6px;}
-  .price-big{font-size:30px; font-weight:700;}
-  .price-change{font-size:14px; font-weight:700; padding:3px 8px; border-radius:6px;}
-  .price-change.up{color:var(--green); background:rgba(78,227,160,.14);}
-  .price-change.down{color:var(--red); background:rgba(255,107,107,.14);}
-  canvas#priceChart{width:100%; height:130px; display:block; background:var(--panel-alt); border-radius:8px; border:1px solid var(--line);}
-  .trade-row{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;}
+  .price-top{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px; flex-wrap:wrap; gap:6px;}
+  .price-big{font-family:var(--mono); font-size:34px; font-weight:800; letter-spacing:-1.5px;}
+  .price-change{font-family:var(--mono); font-size:14px; font-weight:700; padding:4px 10px; border-radius:999px;}
+  .price-change.up{color:var(--green); background:rgba(61,220,151,.14);}
+  .price-change.down{color:var(--red); background:rgba(255,107,122,.14);}
+  canvas#priceChart{width:100%; height:140px; display:block; background:rgba(0,0,0,.22); border-radius:10px; border:1px solid var(--line);}
+  .trade-row{display:flex; gap:7px; margin-top:10px; flex-wrap:wrap;}
   .trade-row button{flex:1; min-width:70px;}
   .custom-trade{align-items:stretch;}
   .custom-trade input{
-    flex:2; min-width:120px; font-family:var(--mono); background:var(--panel-alt);
-    border:1px solid var(--line); border-radius:6px; color:var(--text); padding:7px 10px; font-size:12px;
+    flex:2; min-width:120px; font-family:var(--mono); background:rgba(0,0,0,.24);
+    border:1px solid var(--line); border-radius:9px; color:var(--text); padding:9px 11px; font-size:12.5px;
+    transition:border-color .2s;
   }
+  .custom-trade input:focus{outline:none; border-color:var(--blue);}
   .custom-trade button{flex:1; min-width:60px;}
   .custom-trade select{
-    flex:1.5; min-width:90px; font-family:var(--mono); background:var(--panel-alt);
-    border:1px solid var(--line); border-radius:6px; color:var(--text); padding:7px 6px; font-size:12px;
+    flex:1.5; min-width:90px; font-family:var(--sans); background:rgba(0,0,0,.24);
+    border:1px solid var(--line); border-radius:9px; color:var(--text); padding:9px 7px; font-size:12px;
   }
-  .trade-label{font-size:11px; color:var(--text-dim); width:100%; margin-top:8px;}
+  .trade-label{font-size:11px; color:var(--text-dim); width:100%; margin-top:12px; font-weight:600;}
   .order-row{
     display:flex; justify-content:space-between; align-items:center; gap:8px;
-    background:var(--panel-alt); border:1px solid var(--line); border-radius:6px;
-    padding:7px 10px; margin-top:6px; font-size:11.5px;
+    background:var(--panel-alt); border:1px solid var(--line); border-radius:10px;
+    padding:9px 12px; margin-top:7px; font-size:11.5px;
   }
-  .order-row button{flex:0 0 auto; padding:4px 8px; font-size:11px;}
+  .order-row button{flex:0 0 auto; padding:5px 10px; font-size:11px;}
   .order-row.sell{border-left:3px solid var(--green);}
   .order-row.buy{border-left:3px solid var(--blue);}
 
   /* ---- 마이닝 플로어 ---- */
-  .floor{display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin-bottom:14px;}
-  .rig-card{background:var(--panel-alt); border:1px solid var(--line); border-radius:8px; padding:10px; text-align:center; position:relative;}
-  .rig-card .icon{font-size:26px;}
+  .floor{display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:10px; margin-bottom:16px;}
+  .rig-card{
+    background:var(--panel-alt); border:1px solid var(--line); border-radius:12px;
+    padding:12px 10px; text-align:center; position:relative; transition:border-color .2s, transform .2s;
+  }
+  .rig-card:hover{border-color:var(--line-strong); transform:translateY(-2px);}
+  .rig-card .icon{font-size:28px;}
   .rig-card .count-badge{
     position:absolute; top:6px; right:6px; background:var(--bg-deep); color:var(--amber);
     font-size:10px; padding:1px 6px; border-radius:8px; border:1px solid var(--line);
@@ -223,47 +264,58 @@
   .locked-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); opacity:.5;}
   .locked-row:last-child{border-bottom:none;}
 
-  button{font-family:var(--mono); background:var(--panel-alt); color:var(--text);
-    border:1px solid var(--line); border-radius:6px; padding:7px 10px; cursor:pointer; font-size:12px;}
-  button:hover:not(:disabled){border-color:var(--blue); color:var(--blue);}
-  button:disabled{opacity:.4; cursor:not-allowed;}
-  .btn-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
-  .toggle-on{border-color:var(--green)!important; color:var(--green)!important;}
-  .pool-toggle{display:flex; gap:8px; margin-bottom:8px;}
+  button{
+    font-family:var(--sans); font-weight:600; background:var(--panel-alt); color:var(--text);
+    border:1px solid var(--line); border-radius:9px; padding:9px 12px; cursor:pointer; font-size:12.5px;
+    transition:border-color .15s, color .15s, background .15s, transform .1s;
+  }
+  button:hover:not(:disabled){border-color:var(--blue); color:var(--blue); background:rgba(97,179,255,.08);}
+  button:active:not(:disabled){transform:scale(.97);}
+  button:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
+  button:disabled{opacity:.35; cursor:not-allowed;}
+  .btn-row{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;}
+  .toggle-on{border-color:var(--green)!important; color:var(--green)!important; background:rgba(61,220,151,.10)!important;}
+  .pool-toggle{display:flex; gap:8px; margin-bottom:10px;}
   .pool-toggle button{flex:1;}
 
-  .log{height:150px; overflow-y:auto; font-size:11px; display:flex; flex-direction:column-reverse;}
-  .log div{padding:2px 0; border-bottom:1px dotted var(--line); color:var(--text-dim);}
+  .log{height:160px; overflow-y:auto; font-family:var(--mono); font-size:11px; display:flex; flex-direction:column-reverse;}
+  .log div{padding:4px 0; border-bottom:1px solid var(--line); color:var(--text-dim); line-height:1.45;}
   .log div.warn{color:var(--red);}
   .log div.good{color:var(--green);}
   .log div.news{color:var(--amber);}
 
   /* ---- 리더보드 ---- */
-  .lb-row{display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px dotted var(--line);}
-  .lb-input-row{display:flex; gap:6px; margin-bottom:10px;}
+  .lb-row{display:flex; justify-content:space-between; font-size:12.5px; padding:8px 0; border-bottom:1px solid var(--line); gap:8px;}
+  .lb-row span:last-child{font-family:var(--mono); color:var(--green);}
+  .lb-input-row{display:flex; gap:7px; margin-bottom:10px;}
   .lb-list-large{max-height:420px; overflow-y:auto; padding-right:4px;}
-  .lb-list-large .lb-row{font-size:13px; padding:8px 4px;}
+  .lb-list-large .lb-row{font-size:13px; padding:10px 4px;}
 
   .modal-overlay{
-    position:fixed; inset:0; background:rgba(10,14,20,.72); z-index:100;
+    position:fixed; inset:0; background:rgba(6,10,15,.78); z-index:100;
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
     display:flex; align-items:center; justify-content:center; padding:16px;
   }
   .modal-overlay.hidden{display:none;}
   .modal-box{
-    background:var(--panel); border:1px solid var(--line); border-radius:14px;
-    padding:18px; width:100%; max-width:560px; max-height:90vh; overflow-y:auto;
-    box-shadow:0 12px 40px rgba(0,0,0,.4);
+    background:var(--panel-solid); border:1px solid var(--line-strong); border-radius:18px;
+    padding:22px; width:100%; max-width:560px; max-height:90vh; overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,.55);
+    animation: modalIn .22s cubic-bezier(.2,.8,.3,1);
   }
-  .modal-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;}
+  @keyframes modalIn{ from{opacity:0; transform:translateY(12px) scale(.98);} to{opacity:1; transform:none;} }
+  @media (prefers-reduced-motion: reduce){ .modal-box{animation:none;} }
+  .modal-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;}
+  .modal-header h2{font-size:16px!important; letter-spacing:-0.3px!important; text-transform:none!important; color:var(--text)!important; font-weight:800!important;}
   .modal-close{background:none; border:none; font-size:16px; color:var(--text-dim); cursor:pointer; padding:4px 8px;}
   .tier-tabs{display:flex; gap:6px; flex-wrap:wrap;}
-  .tier-tabs button{flex:1; min-width:80px; font-size:11px; padding:8px 4px;}
-  .tier-tabs button.active{border-color:var(--blue); color:var(--blue); background:rgba(95,179,255,.12);}
+  .tier-tabs button{flex:1; min-width:80px; font-size:11px; padding:9px 5px;}
+  .tier-tabs button.active{border-color:var(--blue); color:var(--blue); background:rgba(97,179,255,.12);}
 
-  .ach-row{display:flex; align-items:center; gap:10px; padding:9px 6px; border-bottom:1px dotted var(--line); font-size:12px;}
-  .ach-row.locked{opacity:.45;}
-  .ach-row .ach-icon{font-size:22px; flex-shrink:0; width:28px; text-align:center;}
-  .ach-row.unlocked .ach-icon{filter:drop-shadow(0 0 4px rgba(255,171,94,.6));}
+  .ach-row{display:flex; align-items:center; gap:12px; padding:11px 6px; border-bottom:1px solid var(--line); font-size:12.5px;}
+  .ach-row.locked{opacity:.4;}
+  .ach-row .ach-icon{font-size:24px; flex-shrink:0; width:30px; text-align:center;}
+  .ach-row.unlocked .ach-icon{filter:drop-shadow(0 0 6px rgba(255,176,102,.5));}
 
   .skin-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px;}
   .skin-card{
@@ -362,6 +414,7 @@
       <li><b>3</b><span data-i18n="guide3">채굴된 BTC는 그래프를 보고 매도하거나, 쌀 때 매수해 자금을 불리세요.</span></li>
       <li><b>4</b><span data-i18n="guide4">전기료를 못 내면(잔고 마이너스) 채굴기가 자동으로 멈춥니다.</span></li>
       <li><b>5</b><span data-i18n="guide5">순자산이 목표치를 넘으면 승급하세요. 자산은 초기화되지만 영구 배율과 신규 장비가 열립니다.</span></li>
+      <li><b>6</b><span data-i18n="guide6">🏆 업적 · 📋 미션 · 📅 출석 보너스로 추가 보상을 챙기고, 🎰 카지노에서 칩으로 한 판 즐겨보세요.</span></li>
     </ul>
   </div>
 
@@ -699,12 +752,12 @@ const tiersGear = [
   {key:'usb', name:{ko:'USB 채굴기', en:'USB Miner'}, icon:'🔌', hash:0.004, power:0.01, heat:0.01, base:20, unlock:0},
   {key:'gpu', name:{ko:'GPU 리그', en:'GPU Rig'}, icon:'🖥️', hash:0.4, power:0.35, heat:0.05, base:600, unlock:0},
   {key:'s9',  name:{ko:'구형 ASIC (S9)', en:'Old ASIC (S9)'}, icon:'📦', hash:20, power:1.3, heat:0.15, base:2800, unlock:0},
-  {key:'s19', name:{ko:'ASIC S19', en:'ASIC S19'}, icon:'🗄️', hash:160, power:3.25, heat:0.35, base:10000, unlock:0},
+  {key:'s19', name:{ko:'ASIC S19', en:'ASIC S19'}, icon:'🗄️', hash:160, power:3.0, heat:0.35, base:10000, unlock:0},
   {key:'s21', name:{ko:'ASIC S21 Pro', en:'ASIC S21 Pro'}, icon:'🏭', hash:350, power:3.6, heat:0.45, base:20000, unlock:0},
-  {key:'immersion', name:{ko:'면역냉각 팜', en:'Immersion-Cooled Farm'}, icon:'🧊', hash:900, power:8, heat:0.3, base:60000, unlock:1},
-  {key:'hydro', name:{ko:'수력 메가팜', en:'Hydro Mega Farm'}, icon:'💧', hash:2400, power:18, heat:0.4, base:220000, unlock:2},
-  {key:'fusion', name:{ko:'핵융합 팜', en:'Fusion Farm'}, icon:'🔆', hash:5000, power:30, heat:0.6, base:500000, unlock:3},
-  {key:'quantum', name:{ko:'퀀텀 해시 어레이', en:'Quantum Hash Array'}, icon:'✨', hash:8000, power:40, heat:0.7, base:900000, unlock:4},
+  {key:'immersion', name:{ko:'면역냉각 팜', en:'Immersion-Cooled Farm'}, icon:'🧊', hash:2600, power:9, heat:0.3, base:60000, unlock:1},
+  {key:'hydro', name:{ko:'수력 메가팜', en:'Hydro Mega Farm'}, icon:'💧', hash:17000, power:22, heat:0.4, base:400000, unlock:2},
+  {key:'fusion', name:{ko:'핵융합 팜', en:'Fusion Farm'}, icon:'🔆', hash:110000, power:52, heat:0.6, base:3000000, unlock:3},
+  {key:'quantum', name:{ko:'퀀텀 해시 어레이', en:'Quantum Hash Array'}, icon:'✨', hash:700000, power:120, heat:0.7, base:25000000, unlock:4},
   {key:'cooler', name:{ko:'쿨러 유닛', en:'Cooler Unit'}, icon:'❄️', hash:0, power:0, heat:0, base:150, unlock:0, cooling:2},
 ];
 
@@ -775,7 +828,7 @@ let state = createFreshState('ko');
 // ---------- 자동 저장/불러오기 ----------
 // window.storage가 있으면 Claude 아티팩트 미리보기 환경이므로 localStorage를 쓰지 않음 (외부 배포 시에만 동작)
 const SAVE_KEY = 'hashfarm_save_v1';
-const SAVE_VERSION = 12; // 밸런스(반감기, 난이도, 전기료, 발열 공식, 시세 장기회귀 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
+const SAVE_VERSION = 13; // 밸런스(반감기, 난이도, 전기료, 발열, 시세, 상위장비 성능 등)가 바뀔 때마다 올림 — 옛 저장값 중 균형 관련 수치는 새로 시작하도록 처리
 const canUseLocalSave = (typeof window.storage === 'undefined');
 
 function buildSaveObject(){
@@ -900,11 +953,12 @@ const TEXT = {
   subtitle: {ko:'비트코인 채굴 시뮬레이터 · 가상 경제 (실제 시세 아님)', en:'Bitcoin Mining Simulator · Virtual Economy (not real market data)'},
   profileLabel: {ko:'내 채굴 등급', en:'My Miner Rank'},
   guideTitle: {ko:'ℹ️ 게임 진행 방법', en:'ℹ️ How to Play'},
-  guide1: {ko:'오른쪽 장비 구매 패널에서 채굴기를 사서 해시레이트를 확보하세요.', en:'Buy rigs in the equipment panel on the right to build up hashrate.'},
-  guide2: {ko:'발열이 쌓이면 팬 부스트로 식히고, 오버클럭은 신중히 켜세요.', en:'Cool down with the fan boost when heat builds up, and use overclock carefully.'},
-  guide3: {ko:'채굴된 BTC는 그래프를 보고 매도하거나, 쌀 때 매수해 자금을 불리세요.', en:'Sell mined BTC by watching the chart, or buy the dip to grow your funds.'},
-  guide4: {ko:'전기료를 못 내면(잔고 마이너스) 채굴기가 자동으로 멈춥니다.', en:'If you can\'t pay electricity (negative balance), rigs shut down automatically.'},
-  guide5: {ko:'순자산이 목표치를 넘으면 승급하세요. 자산은 초기화되지만 영구 배율과 신규 장비가 열립니다.', en:'Once your net worth passes the target, promote. Assets reset but you gain a permanent multiplier and new gear.'},
+  guide1: {ko:'장비를 사서 해시레이트를 올리세요. 해시레이트가 높을수록 채굴 수익이 커집니다.', en:'Buy rigs to raise your hashrate — higher hashrate means more mining income.'},
+  guide2: {ko:'❄️ 쿨러 유닛을 함께 사두면 방치해도 발열이 안정적으로 유지돼요. 안 쓰는 장비는 ⏻ 버튼으로 꺼서 전기료를 아끼세요.', en:'❄️ Buy Cooler Units to keep heat stable even while idle. Turn off unused rigs with ⏻ to save electricity.'},
+  guide3: {ko:'채굴한 BTC는 시세 차트를 보고 매도하거나, 쌀 때 매수해 자금을 불리세요. 📋 예약 주문으로 목표가에 자동 거래도 가능해요.', en:'Sell mined BTC watching the chart, or buy the dip. Use 📋 limit orders to trade automatically at target prices.'},
+  guide4: {ko:'전기료를 못 내면(잔고 마이너스) 채굴이 멈춰요. 🏦 대출이나 장비 판매로 자금을 확보할 수 있습니다.', en:'If you can\'t pay electricity (negative balance), mining stops. Use 🏦 loans or sell rigs to recover.'},
+  guide5: {ko:'순자산이 목표치를 넘으면 승급하세요. 자산은 초기화되지만 영구 배율·신규 장비·새 테마가 열립니다. (대출은 먼저 상환해야 해요)', en:'Promote once net worth passes the target. Assets reset but you gain a permanent multiplier, new gear, and new themes. (Repay loans first.)'},
+  guide6: {ko:'🏆 업적 · 📋 미션 · 📅 출석 보너스로 추가 보상을 챙기고, 🎰 카지노에서 칩으로 한 판 즐겨보세요.', en:'Earn extra rewards from 🏆 achievements, 📋 missions, and 📅 daily bonuses — and try your luck at the 🎰 casino.'},
   viewLabel: {ko:'👀 방문자 수', en:'👀 Visitors'},
   likeLabel: {ko:'❤️ 좋아요', en:'❤️ Likes'},
   likeBtn: {ko:'좋아요 누르기', en:'Like'},
@@ -1288,21 +1342,46 @@ function drawChart(){
   const min = Math.min(...data), max = Math.max(...data);
   const range = (max-min) || 1;
   const rising = data[data.length-1] >= data[0];
-  const color = rising ? '#4ee3a0' : '#ff6b6b';
+  const color = rising ? '#3ddc97' : '#ff6b7a';
+  const rgb = rising ? '61,220,151' : '255,107,122';
 
+  // 은은한 수평 그리드
+  ctx.strokeStyle = 'rgba(255,255,255,.05)';
+  ctx.lineWidth = 1;
+  for(let i=1;i<4;i++){
+    const gy = (h/4)*i;
+    ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke();
+  }
+
+  const pt = (p,i) => [ i/(data.length-1)*w, h - ((p-min)/range)*(h*0.75) - h*0.13 ];
+
+  // 그라디언트 영역 채움
   ctx.beginPath();
-  data.forEach((p,i)=>{
-    const x = i/(data.length-1)*w;
-    const y = h - ((p-min)/range)*(h*0.8) - h*0.1;
-    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-  });
+  data.forEach((p,i)=>{ const [x,y]=pt(p,i); i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y); });
+  ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0, `rgba(${rgb},.28)`);
+  grad.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // 라인
+  ctx.beginPath();
+  data.forEach((p,i)=>{ const [x,y]=pt(p,i); i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y); });
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.shadowColor = `rgba(${rgb},.5)`;
+  ctx.shadowBlur = 8;
   ctx.stroke();
+  ctx.shadowBlur = 0;
 
-  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
-  ctx.fillStyle = rising ? 'rgba(78,227,160,.12)' : 'rgba(255,107,107,.12)';
-  ctx.fill();
+  // 현재가 포인트
+  const [lx,ly] = pt(data[data.length-1], data.length-1);
+  ctx.beginPath(); ctx.arc(lx,ly,3.5,0,Math.PI*2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.beginPath(); ctx.arc(lx,ly,7,0,Math.PI*2);
+  ctx.fillStyle = `rgba(${rgb},.22)`; ctx.fill();
 }
 
 // ---------- 렌더 ----------
@@ -1876,11 +1955,11 @@ document.getElementById('achModal').addEventListener('click', (e) => {
 
 // ---------- 채굴장 테마(스킨) ----------
 const SKINS = [
-  {id:'default', name:{ko:'기본', en:'Default'}, unlock:0, vars:{'--amber':'#ffab5e','--green':'#4ee3a0','--blue':'#5fb3ff','--panel':'#242e3c','--bg-deep':'#1a212b','--bg-grad':'#212a37'}},
-  {id:'neon', name:{ko:'네온', en:'Neon'}, unlock:1, vars:{'--amber':'#ff2fd0','--green':'#39ff14','--blue':'#00e5ff','--panel':'#1a0f2e','--bg-deep':'#0a0414','--bg-grad':'#16092b'}},
-  {id:'gold', name:{ko:'골드', en:'Gold'}, unlock:2, vars:{'--amber':'#ffd700','--green':'#c9a227','--blue':'#e8c766','--panel':'#2a2313','--bg-deep':'#1a1508','--bg-grad':'#241d0d'}},
-  {id:'hacker', name:{ko:'해커', en:'Hacker'}, unlock:3, vars:{'--amber':'#00ff41','--green':'#00ff41','--blue':'#00cc33','--text':'#c8ffd4','--panel':'#03130a','--bg-deep':'#000a04','--bg-grad':'#021107'}},
-  {id:'space', name:{ko:'스페이스', en:'Space'}, unlock:4, vars:{'--amber':'#a78bfa','--green':'#34d399','--blue':'#818cf8','--panel':'#140f33','--bg-deep':'#07041a','--bg-grad':'#0f0a28'}},
+  {id:'default', name:{ko:'기본', en:'Default'}, unlock:0, vars:{'--amber':'#ffb066','--green':'#3ddc97','--blue':'#61b3ff','--text':'#e9eef5','--panel':'rgba(28,38,51,.72)','--panel-solid':'#1c2633','--panel-alt':'rgba(40,53,70,.6)','--bg-deep':'#0d1219','--bg-grad':'#141c26'}},
+  {id:'neon', name:{ko:'네온', en:'Neon'}, unlock:1, vars:{'--amber':'#ff4fd8','--green':'#4dff9e','--blue':'#22e5ff','--text':'#f0e9ff','--panel':'rgba(32,17,56,.72)','--panel-solid':'#201138','--panel-alt':'rgba(48,26,82,.6)','--bg-deep':'#0a0518','--bg-grad':'#14092b'}},
+  {id:'gold', name:{ko:'골드', en:'Gold'}, unlock:2, vars:{'--amber':'#ffd45e','--green':'#d4b45a','--blue':'#f0d38a','--text':'#f7efdd','--panel':'rgba(46,38,22,.72)','--panel-solid':'#2e2616','--panel-alt':'rgba(64,53,30,.6)','--bg-deep':'#161106','--bg-grad':'#241c0c'}},
+  {id:'hacker', name:{ko:'해커', en:'Hacker'}, unlock:3, vars:{'--amber':'#5cff8f','--green':'#00ff70','--blue':'#3ddb7a','--text':'#c8ffd9','--panel':'rgba(8,26,16,.75)','--panel-solid':'#081a10','--panel-alt':'rgba(14,40,24,.6)','--bg-deep':'#020a05','--bg-grad':'#05140a'}},
+  {id:'space', name:{ko:'스페이스', en:'Space'}, unlock:4, vars:{'--amber':'#b79bff','--green':'#4ade9f','--blue':'#8f9cff','--text':'#e8e6ff','--panel':'rgba(26,20,58,.72)','--panel-solid':'#1a143a','--panel-alt':'rgba(40,32,82,.6)','--bg-deep':'#08051c','--bg-grad':'#110c2e'}},
 ];
 
 function applySkin(skinId){
