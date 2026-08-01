@@ -1515,7 +1515,11 @@ function renderTier(){
     promoteBtn.disabled = net < threshold || hasLoan;
     promoteBtn.textContent = net>=threshold ? TEXT.promoteReady[state.lang] : TEXT.promoteNotReady[state.lang];
   } else {
-    document.getElementById('progressLabel').textContent = TEXT.maxTier[state.lang];
+    // 최고 등급: 승급 목표 대신 현재 총 순자산을 항상 표시
+    document.getElementById('progressLabel').textContent = tr(
+      `🌌 최고 등급 · 총 순자산 ${fmtUsd(net)}`,
+      `🌌 Max Tier · Net Worth ${fmtUsd(net)}`
+    );
     document.getElementById('progressFill').style.width='100%';
     promoteBtn.disabled = true;
     promoteBtn.textContent = TEXT.maxTier[state.lang];
