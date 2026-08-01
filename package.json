@@ -1,7 +1,7 @@
 {
   "name": "hashfarm-realtime-server",
   "version": "1.0.0",
-  "description": "HASH FARM game - realtime connected user presence server",
+  "description": "HASH FARM game - realtime server with Supabase leaderboard",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,6 +10,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "socket.io": "^4.7.5"
